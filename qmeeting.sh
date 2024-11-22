@@ -9,26 +9,23 @@ if [[ "x$SCRIPT_DIR" == "x" ]] ; then echo waring can not get SCRIPT_DIR, dont t
 #[[ "x$0" == "x-ash" ]]  is source ash script case
 #
 echodo() { echo _run_cmd:"$@"; $@; }
-CONTAINER_NAME=qfilexchange_containerbox
+CONTAINER_NAME=meeting
 DATA_DIR=/_data/${SCRIPT_DIR}/${CONTAINER_NAME}
 echodo mkdir -p ${DATA_DIR}
 echodo podman stop ${CONTAINER_NAME}
 echodo podman rm ${CONTAINER_NAME}
+echodo podman rmi localhost/qmeeting:latest
 
-CERT_DOMAIN_NAME=www.danfestar.cn
-[ -f ./.env ] && source ./.env
+CERT_DOMAIN_NAME=meeting.danfestar.cn
+#[ -f ./.env ] && source ./.env
 
 #-p 8085:5000  
-echodo podman run --name ${CONTAINER_NAME} -d \
--p 443:443 \
+echodo podman run --tls-verify=false --name ${CONTAINER_NAME} -d \
+-p 8443:443 \
 -v /opt/_certbot/etc_letsencrypt/live/${CERT_DOMAIN_NAME}/fullchain.pem:/certs/fullchain.pem \
 -v /opt/_certbot/etc_letsencrypt/live/${CERT_DOMAIN_NAME}/privkey.pem:/certs/privkey.pem \
--v ${DATA_DIR}:/registry \
--e STORAGE_PATH=/registry \
--e REGISTRY_STORAGE_FILESYSTEM_ROOTDIRECTORY=/registry \
--e REGISTRY_HTTP_ADDR=0.0.0.0:443 \
--e REGISTRY_HTTP_TLS_CERTIFICATE=/certs/fullchain.pem \
--e REGISTRY_HTTP_TLS_KEY=/certs/privkey.pem \
-docker.io/registry:2
+-v ${DATA_DIR}:/data \
+docker://localhost/qmeeting:latest
+echodo podman logs -f ${CONTAINER_NAME}
 
 
