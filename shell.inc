@@ -1,4 +1,8 @@
 
+sethostname() { echo ${1} > /etc/hostname ; grep "^127.0.0.1 ${1}$" /etc/hosts || echo "127.0.0.1 ${1}" >> /etc/hosts ; hostname ${1}; }
+reload() {
+  source /opt/_cloudup/shell.inc
+}
 prefixechodo() { echo "$@"; "$@"; }
 socksenableby(){
     echo 'socksenableby socks5h://127.0.0.1:7890 #help'
@@ -27,5 +31,10 @@ socksdisable(){
   prefixechodo export SBT_OPTS="$SBT_OPTS_ORIGIN"
 }
 
-socksenableby socks5://172.24.85.187:7890
+git config --global user.email "lrobot.qq@gmail.com"
+git config --global user.name "lrobot"
+
+echo socksenableby socks5://172.24.85.187:7890
+echo socksenableby socks5h://172.24.85.187:7890
+
 

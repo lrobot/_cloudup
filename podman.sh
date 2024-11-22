@@ -12,10 +12,13 @@ err_exit() {
 
 cd $SCRIPT_DIR || err_exit
 
+#podman-compose 
 
 apt update
-apt install -y podman podman-compose python3-pip git dbus-broker vim dnsmasq bzip2 golang-github-containernetworking-plugin-dnsname
-
+apt install -y curl podman python3-pip git dbus-broker vim dnsmasq bzip2 golang-github-containernetworking-plugin-dnsname
+# https://github.com/containers/podman-compose
+cp podman-compose.py /usr/local/bin/podman-compose
+chmod a+x /usr/local/bin/podman-compose
 systemctl restart dbus-broker
 
 grep docker /etc/containers/registries.conf || {
