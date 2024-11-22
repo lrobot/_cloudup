@@ -1,23 +1,30 @@
-version: "3.5"
-network_mode: host
+# if network_mode host not work may be need install new podman-compose by: curl -o /usr/local/bin/podman-compose https://raw.githubusercontent.com/containers/podman-compose/main/podman_compose.py
 services:
+  coturn:
+    network_mode: "host"
+    image: coturn/coturn
+    volumes:
+      - "./coturn.conf:/etc/turnserver.conf"
   turnrs:
     # https://github.com/mycrl/turn-rs?tab=readme-ov-file#docker
+    network_mode: "host"
     image: ghcr.io/mycrl/turn-server
     volumes:
-      - "turn_rs.yml:/etc/turn-server/config.toml"
+      - "./turn_rs.yml:/etc/turn-server/config.toml"
     restart: always
   kurento:
+    network_mode: "host"
     image: kurento/kurento-media-server:7.0.0
     volumes:
-      - "kurento.conf.json:/etc/kurento/kurento.conf.json"
+      - "./kurento.conf.json:/etc/kurento/kurento.conf.json"
     restart: always
   mqtt:
+    network_mode: "host"
     image: bytebeamio/rumqttd
     volumes:
       - "/opt/_certbot/etc_letsencrypt/live/meeting.danfestar.cn/chain.pem:/certs/chain.pem"
       - "/opt/_certbot/etc_letsencrypt/live/meeting.danfestar.cn/cert.pem:/certs/cert.pem"
       - "/opt/_certbot/etc_letsencrypt/live/meeting.danfestar.cn/privkey.pem:/certs/privkey.pem"
-      - "rumqttd.toml:/etc/rumqttd.toml"
+      - "./rumqttd.toml:/etc/rumqttd.toml"
     entrypoint: ["rumqttd", "-c", "/etc/rumqttd.toml"]
     restart: always

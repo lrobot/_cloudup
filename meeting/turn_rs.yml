@@ -5,7 +5,7 @@
 # for a single node, this configuration is fixed,
 # but each node can be configured as a different domain.
 # this is a good idea to divide the nodes by namespace.
-realm = "localhost"
+realm = "meeting.danfestar.cn"
 
 # turn server listen interfaces
 #
@@ -14,19 +14,19 @@ realm = "localhost"
 # ipv4 and ipv6.
 [[turn.interfaces]]
 transport = "udp"
-bind = "127.0.0.1:3478"
+bind = "0.0.0.0:3479"
 # external address
 #
 # specify the node external address and port.
 # for the case of exposing the service to the outside,
 # you need to manually specify the server external IP
 # address and service listening port.
-external = "127.0.0.1:3478"
+external = "140.143.87.139:3479"
 
 [[turn.interfaces]]
 transport = "tcp"
-bind = "127.0.0.1:3478"
-external = "127.0.0.1:3478"
+bind = "0.0.0.0:3479"
+external = "140.143.87.139:3479"
 
 [api]
 # controller bind
@@ -74,5 +74,5 @@ level = "info"
 # The server will try to use static authentication first, and then use
 # external control service authentication.
 [auth.static_credentials]
-# user1 = "test"
+use_webrtc = "b135fb2fb2ec"
 # user2 = "test"
