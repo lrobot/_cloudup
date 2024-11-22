@@ -1,0 +1,23 @@
+version: "3.5"
+network_mode: host
+services:
+  turnrs:
+    # https://github.com/mycrl/turn-rs?tab=readme-ov-file#docker
+    image: ghcr.io/mycrl/turn-server
+    volumes:
+      - "turn_rs.yml:/etc/turn-server/config.toml"
+    restart: always
+  kurento:
+    image: kurento/kurento-media-server:7.0.0
+    volumes:
+      - "kurento.conf.json:/etc/kurento/kurento.conf.json"
+    restart: always
+  mqtt:
+    image: bytebeamio/rumqttd
+    volumes:
+      - "/opt/_certbot/etc_letsencrypt/live/meeting.danfestar.cn/chain.pem:/certs/chain.pem"
+      - "/opt/_certbot/etc_letsencrypt/live/meeting.danfestar.cn/cert.pem:/certs/cert.pem"
+      - "/opt/_certbot/etc_letsencrypt/live/meeting.danfestar.cn/privkey.pem:/certs/privkey.pem"
+      - "rumqttd.toml:/etc/rumqttd.toml"
+    entrypoint: ["rumqttd", "-c", "/etc/rumqttd.toml"]
+    restart: always
