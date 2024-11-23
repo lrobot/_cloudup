@@ -3,8 +3,9 @@ services:
   coturn:
     network_mode: "host"
     image: coturn/coturn
-    volumes:
-      - "./coturn.conf:/etc/turnserver.conf"
+    command: ["-c", "/etc/coturn/turnserver.conf"]
+    volumes: # chmod 777 coturn.conf
+      - "./coturn.conf:/etc/coturn/turnserver.conf"
   turnrs:
     # https://github.com/mycrl/turn-rs?tab=readme-ov-file#docker
     network_mode: "host"

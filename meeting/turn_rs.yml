@@ -14,19 +14,19 @@ realm = "meeting.danfestar.cn"
 # ipv4 and ipv6.
 [[turn.interfaces]]
 transport = "udp"
-bind = "0.0.0.0:3479"
+bind = "0.0.0.0:3488"
 # external address
 #
 # specify the node external address and port.
 # for the case of exposing the service to the outside,
 # you need to manually specify the server external IP
 # address and service listening port.
-external = "140.143.87.139:3479"
+external = "140.143.87.139:3488"
 
 [[turn.interfaces]]
 transport = "tcp"
-bind = "0.0.0.0:3479"
-external = "140.143.87.139:3479"
+bind = "0.0.0.0:3488"
+external = "140.143.87.139:3488"
 
 [api]
 # controller bind
