@@ -12,7 +12,7 @@ services:
     image: ghcr.io/mycrl/turn-server
     volumes:
       - "./turn_rs.yml:/etc/turn-server/config.toml"
-    restart: always
+    restart: alwaysls
   kurento:
     network_mode: "host"
     image: kurento/kurento-media-server:7.0.0

@@ -38,3 +38,8 @@ echo socksenableby socks5://172.24.85.187:7890
 echo socksenableby socks5h://172.24.85.187:7890
 
 
+podman-composeu_restart() {
+  podman-compose down
+  podman-compose up -d
+  podman-compose logs -f 
+}

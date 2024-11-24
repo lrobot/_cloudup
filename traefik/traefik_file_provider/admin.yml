@@ -1,0 +1,34 @@
+http:
+  routers:
+    # Define a connection between requests and services
+    to-whoami:
+      # rule: "Host(`admin.danfestar.cn`) && PathPrefix(`/admin/`)"
+      rule: "Host(`admin.danfestar.cn`)"
+       # If the rule matches, applies the middleware
+      middlewares:
+        - test-user
+      tls:
+        certresolver: "myresolver"
+      # If the rule matches, forward to the whoami service (declared below)
+      service: traefik_dashboard
+      entryPoints:
+        - web
+        - web8000
+        - websecure
+        - webtls8443
+
+
+  middlewares:
+    # Define an authentication mechanism
+    test-user:
+      basicAuth:
+        usersFile: /traefik_file_provider/authusers.txt
+        users:
+          - test:$apr1$H6uskkkW$IgXLP6ewTrSuBkTrqE8wj/
+
+  services:
+    # Define how to reach an existing service on our infrastructure
+    traefik_dashboard:
+      loadBalancer:
+        servers:
+        - url: http://host.containers.internal:9001

@@ -15,14 +15,15 @@ echodo mkdir -p ${DATA_DIR}
 echodo podman stop ${CONTAINER_NAME}
 echodo podman rm ${CONTAINER_NAME}
 
-CERT_DOMAIN_NAME=www.danfestar.cn
-[ -f ./.env ] && source ./.env
+DOMAIN_NAME=registry.danfestar.cn
 
-#-p 8085:5000  
+run_with_tls() {
+
+
 echodo podman run --name ${CONTAINER_NAME} -d \
--p 443:443 \
--v /opt/_certbot/etc_letsencrypt/live/${CERT_DOMAIN_NAME}/fullchain.pem:/certs/fullchain.pem \
--v /opt/_certbot/etc_letsencrypt/live/${CERT_DOMAIN_NAME}/privkey.pem:/certs/privkey.pem \
+-p 8444:443 \
+-v /opt/_certbot/etc_letsencrypt/live/${DOMAIN_NAME}/fullchain.pem:/certs/fullchain.pem \
+-v /opt/_certbot/etc_letsencrypt/live/${DOMAIN_NAME}/privkey.pem:/certs/privkey.pem \
 -v ${DATA_DIR}:/registry \
 -e STORAGE_PATH=/registry \
 -e REGISTRY_STORAGE_FILESYSTEM_ROOTDIRECTORY=/registry \
@@ -31,4 +32,30 @@ echodo podman run --name ${CONTAINER_NAME} -d \
 -e REGISTRY_HTTP_TLS_KEY=/certs/privkey.pem \
 docker.io/registry:2
 
+}
 
+echo_labels() {
+
+cat <<EOF
+traefik.enable=true
+traefik.http.routers.${CONTAINER_NAME}.rule=Host(\`${DOMAIN_NAME}\`)
+traefik.http.routers.${CONTAINER_NAME}.entrypoints=websecure
+traefik.http.routers.${CONTAINER_NAME}.tls.certresolver=myresolver
+EOF
+}
+
+run_with_notls() {
+
+echodo podman run --name ${CONTAINER_NAME} -d \
+-p 5000:5000 \
+-v ${DATA_DIR}:/registry \
+-e STORAGE_PATH=/registry \
+-e REGISTRY_STORAGE_FILESYSTEM_ROOTDIRECTORY=/registry \
+-e REGISTRY_HTTP_ADDR=0.0.0.0:5000 \
+--label-file <(echo_labels) \
+docker.io/registry:2
+
+}
+
+
+run_with_notls

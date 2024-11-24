@@ -24,7 +24,7 @@
         "//ipv6": false,
         "//": "WebSocket port where API clients connect to control KMS",
         "//": "Set to 0 or comment out the line to disable WebSocket access",
-        "port": 8888,
+        "port": 9888,
         "//secure": {
           "//": "Secure WebSocket port where API clients connect to control KMS",
           "//": "Set to 0 or comment out the line to disable Secure WebSocket access",

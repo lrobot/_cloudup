@@ -14,18 +14,27 @@ DATA_DIR=/_data/${SCRIPT_DIR}/${CONTAINER_NAME}
 echodo mkdir -p ${DATA_DIR}
 echodo podman stop ${CONTAINER_NAME}
 echodo podman rm ${CONTAINER_NAME}
-echodo podman rmi localhost/qmeeting:latest
+echodo podman rmi qmeeting:latest
 
-CERT_DOMAIN_NAME=meeting.danfestar.cn
+DOMAIN_NAME=meeting.danfestar.cn
 #[ -f ./.env ] && source ./.env
 
 #-p 8085:5000  
-echodo podman run --tls-verify=false --name ${CONTAINER_NAME} -d \
--p 8443:443 \
--v /opt/_certbot/etc_letsencrypt/live/${CERT_DOMAIN_NAME}/fullchain.pem:/certs/fullchain.pem \
--v /opt/_certbot/etc_letsencrypt/live/${CERT_DOMAIN_NAME}/privkey.pem:/certs/privkey.pem \
--v ${DATA_DIR}:/data \
-docker://localhost/qmeeting:latest
-echodo podman logs -f ${CONTAINER_NAME}
 
+echo_labels() {
+cat <<EOF
+traefik.enable=true
+traefik.http.routers.${CONTAINER_NAME}.rule=Host(\`${DOMAIN_NAME}\`)
+traefik.http.routers.${CONTAINER_NAME}.entrypoints=websecure
+traefik.http.routers.${CONTAINER_NAME}.tls.certresolver=myresolver
+EOF
+}
+
+
+echodo podman run --tls-verify=false --name ${CONTAINER_NAME} -d \
+-p 9002:80 \
+-v ${DATA_DIR}:/data \
+--label-file <(echo_labels) \
+docker://registry.danfestar.cn/qmeeting:latest
+echodo podman logs -f ${CONTAINER_NAME}
 
