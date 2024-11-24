@@ -9,32 +9,31 @@ if [[ "x$SCRIPT_DIR" == "x" ]] ; then echo waring can not get SCRIPT_DIR, dont t
 #[[ "x$0" == "x-ash" ]]  is source ash script case
 #
 echodo() { echo _run_cmd:"$@"; $@; }
-CONTAINER_NAME=meeting
-DATA_DIR=/_data${SCRIPT_DIR}/${CONTAINER_NAME}
+
+if [ "x$1" == "" ] ; then
+  echo "Usage: $0 <domain_name> dir"
+  exit 1
+fi
+
+DOMAIN_NAME=${1}
+CONTAINER_NAME=${DOMAIN_NAME//./_}
+DATA_DIR=$2
 echodo mkdir -p ${DATA_DIR}
 echodo podman stop ${CONTAINER_NAME}
 echodo podman rm ${CONTAINER_NAME}
-echodo podman rmi qmeeting:latest
 
-DOMAIN_NAME=meeting.danfestar.cn
-#[ -f ./.env ] && source ./.env
-
-#-p 8085:5000  
 
 __label_file() {
+  # traefik.docker.network
 cat <<EOF
 traefik.enable=true
 traefik.http.routers.${CONTAINER_NAME}.rule=Host(\`${DOMAIN_NAME}\`)
 traefik.http.routers.${CONTAINER_NAME}.entrypoints=websecure
 traefik.http.routers.${CONTAINER_NAME}.tls.certresolver=myresolver
+traefik.http.routers.${CONTAINER_NAME}.service=${CONTAINER_NAME}_service
+traefik.http.services.${CONTAINER_NAME}_service.loadbalancer.server.port=8080
 EOF
 }
 
-
-echodo podman run --tls-verify=false --name ${CONTAINER_NAME} -d \
--p 9002:80 \
--v ${DATA_DIR}:/data \
---label-file <(__label_file) \
-docker://registry.danfestar.cn/qmeeting:latest
-echodo podman logs -f ${CONTAINER_NAME}
-
+#-p 8080:8080
+echodo podman run --name ${CONTAINER_NAME} -d -it --label-file <(__label_file)  -v ./${DATA_DIR}:/tmp  docker.io/svenstaro/miniserve --index index.html /tmp

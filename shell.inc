@@ -31,6 +31,11 @@ socksdisable(){
   prefixechodo export SBT_OPTS="$SBT_OPTS_ORIGIN"
 }
 
+gitsu() {
+  (set -x;
+  git add . && git commit -m"info$*" && git pull &&  git push
+  set +x;)
+}
 git config --global user.email "lrobot.qq@gmail.com"
 git config --global user.name "lrobot"
 

@@ -10,7 +10,7 @@ if [[ "x$SCRIPT_DIR" == "x" ]] ; then echo waring can not get SCRIPT_DIR, dont t
 #
 echodo() { echo _run_cmd:"$@"; $@; }
 CONTAINER_NAME=qfilexchange_containerbox
-DATA_DIR=/_data/${SCRIPT_DIR}/${CONTAINER_NAME}
+DATA_DIR=/_data${SCRIPT_DIR}/${CONTAINER_NAME}
 echodo mkdir -p ${DATA_DIR}
 echodo podman stop ${CONTAINER_NAME}
 echodo podman rm ${CONTAINER_NAME}
@@ -34,7 +34,7 @@ docker.io/registry:2
 
 }
 
-echo_labels() {
+__label_file() {
 
 cat <<EOF
 traefik.enable=true
@@ -52,7 +52,7 @@ echodo podman run --name ${CONTAINER_NAME} -d \
 -e STORAGE_PATH=/registry \
 -e REGISTRY_STORAGE_FILESYSTEM_ROOTDIRECTORY=/registry \
 -e REGISTRY_HTTP_ADDR=0.0.0.0:5000 \
---label-file <(echo_labels) \
+--label-file <(__label_file) \
 docker.io/registry:2
 
 }
