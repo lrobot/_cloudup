@@ -20,7 +20,15 @@ services:
       - "./kurento.conf.json:/etc/kurento/kurento.conf.json"
     restart: always
   mqtt:
-    network_mode: "host"
+    ports:
+      - "1883:1883"
+      - "8083:8083"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.mqtt.rule=Host(`meeting.danfestar.cn`) && PathPrefix(`/mqtt`)"
+      - "traefik.http.routers.mqtt.entrypoints=websecure"
+      - "traefik.http.routers.mqtt.tls.certresolver=myresolver"
+      - traefik.http.services.mqtt.loadbalancer.server.port=8083
     image: bytebeamio/rumqttd
     volumes:
       - "/opt/_certbot/etc_letsencrypt/live/meeting.danfestar.cn/chain.pem:/certs/chain.pem"
