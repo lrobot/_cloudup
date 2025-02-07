@@ -39,8 +39,8 @@ gitsu() {
 git config --global user.email "lrobot.qq@gmail.com"
 git config --global user.name "lrobot"
 
-echo socksenableby socks5://172.24.85.187:7890
-echo socksenableby socks5h://172.24.85.187:7890
+#echo socksenableby socks5://172.24.85.187:7890
+#echo socksenableby socks5h://172.24.85.187:7890
 
 
 podman-composeu_restart() {
