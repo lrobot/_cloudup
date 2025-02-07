@@ -21,6 +21,7 @@ run_with_tls() {
 
 
 echodo podman run --name ${CONTAINER_NAME} -d \
+--restart unless-stopped \
 -p 8444:443 \
 -v /opt/_certbot/etc_letsencrypt/live/${DOMAIN_NAME}/fullchain.pem:/certs/fullchain.pem \
 -v /opt/_certbot/etc_letsencrypt/live/${DOMAIN_NAME}/privkey.pem:/certs/privkey.pem \
@@ -47,6 +48,7 @@ EOF
 run_with_notls() {
 
 echodo podman run --name ${CONTAINER_NAME} -d \
+--restart unless-stopped \
 -p 5000:5000 \
 -v ${DATA_DIR}:/registry \
 -e STORAGE_PATH=/registry \
