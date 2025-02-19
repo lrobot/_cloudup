@@ -20,6 +20,8 @@ apt install -y curl podman python3-pip git dbus-broker vim dnsmasq bzip2 golang-
 cp podman-compose.py /usr/local/bin/podman-compose
 chmod a+x /usr/local/bin/podman-compose
 systemctl restart dbus-broker
+systemctl stop dnsmasq
+systemctl disable dnsmasq
 
 grep docker /etc/containers/registries.conf || {
  echo "add docker.io for docker search"
