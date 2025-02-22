@@ -13,9 +13,15 @@ err_exit() {
 cd $SCRIPT_DIR || err_exit
 
 #podman-compose 
+cat <<EOF > /etc/apt/sources.list
+deb http://mirrors.tuna.tsinghua.edu.cn/debian bookworm main contrib
+deb http://mirrors.tuna.tsinghua.edu.cn/debian bookworm-updates main contrib
+deb http://mirrors.tuna.tsinghua.edu.cn/debian-security bookworm-security main contrib
+EOF
 
+# docker-compose
 apt update
-apt install -y curl podman python3-pip git dbus-broker vim dnsmasq bzip2 golang-github-containernetworking-plugin-dnsname podman-compose
+apt install -y curl podman python3-pip git dbus-broker vim dnsmasq bzip2 golang-github-containernetworking-plugin-dnsname podman-compose podman-docker
 # https://github.com/containers/podman-compose
 cp podman-compose.py /usr/local/bin/podman-compose
 chmod a+x /usr/local/bin/podman-compose

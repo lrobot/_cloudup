@@ -10,4 +10,5 @@ if [[ "x$SCRIPT_DIR" == "x" ]] ; then echo waring can not get SCRIPT_DIR, dont t
 #
 echodo() { echo _run_cmd:"$@"; $@; }
 
-./.miniserve_base.sh www.danfestar.cn www
+./.miniserve_base.sh www.danfestar.cn ${SCRIPT_DIR}/www
+

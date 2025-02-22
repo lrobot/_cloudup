@@ -1,0 +1,35 @@
+FROM ollama/ollama
+
+##############debian boot up begin
+LABEL author="lrobot.qq@gmail.com"
+LABEL github="https://github.com/lrobot"
+COPY <<EOF /etc/apt/sources.list
+deb https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ focal main restricted universe multiverse
+deb https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ focal-updates main restricted universe multiverse
+deb https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ focal-backports main restricted universe multiverse
+deb https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ focal-security main restricted universe multiverse
+EOF
+
+COPY <<EOF /start.sh
+#!/bin/bash
+#ollma是服务器客户端模式 download发生在server上 需要server添加proxy
+set -x
+export HTTP_PROXY=socks5://192.168.1.22:7890
+export HTTPS_PROXY=socks5://192.168.1.22:7890
+export FTP_PROXY=socks5://192.168.1.22:7890
+export RSYNC_PROXY=socks5://192.168.1.22:7890
+export ALL_PROXY=socks5://192.168.1.22:7890
+/bin/ollama serve
+EOF
+RUN chmod a+x /start.sh
+# HTTPS_PROXY= HTTP_PROXY= http_proxy= https_proxy= 
+RUN cat /etc/apt/sources.list
+RUN apt -o "Acquire::https::Verify-Peer=false" update
+RUN apt -o "Acquire::https::Verify-Peer=false" install -y ca-certificates --reinstall
+##############debian boot up end
+
+#podman run --rm -it -v ollama:/root/.ollama -p 11434:11434 --name ollama ollama/ollama
+#ref : https://www.toutiao.com/article/7466355814522012214/?&source=m_redirect&wid=1738409420194
+ENTRYPOINT ["/start.sh"]
+
+

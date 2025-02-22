@@ -1,0 +1,32 @@
+FROM debian:bookworm
+
+##############debian boot up begin
+LABEL author="lrobot.qq@gmail.com"
+LABEL github="https://github.com/lrobot"
+RUN rm /etc/apt/sources.list.d/debian.sources
+RUN echo "deb https://mirrors.tuna.tsinghua.edu.cn/debian/ bookworm main contrib non-free non-free-firmware\n\
+deb https://mirrors.tuna.tsinghua.edu.cn/debian/ bookworm-updates main contrib non-free non-free-firmware\n\
+deb https://mirrors.tuna.tsinghua.edu.cn/debian/ bookworm-backports main contrib non-free non-free-firmware\n\
+deb https://mirrors.tuna.tsinghua.edu.cn/debian-security bookworm-security main contrib non-free non-free-firmware" | tee /etc/apt/sources.list
+# HTTPS_PROXY= HTTP_PROXY= http_proxy= https_proxy= 
+RUN cat /etc/apt/sources.list
+RUN apt -o "Acquire::https::Verify-Peer=false" update
+RUN apt -o "Acquire::https::Verify-Peer=false" install -y ca-certificates --reinstall
+##############debian boot up end
+
+
+
+
+
+
+
+
+
+#ref : https://www.toutiao.com/article/7466355814522012214/?&source=m_redirect&wid=1738409420194
+ENV AI_LLM_VERSION 0.1
+WORKDIR /app
+RUN apt install python3 python3-pip
+RUN pip3 install tensorflow
+RUN pip3 install torch
+RUN curl -fsSL https://ollama.com/install.sh | sh
+
