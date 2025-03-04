@@ -9,18 +9,17 @@ services:
       - "--api=true"  
       - "--api.insecure=true"  
       - "--providers.docker=true"  
-      - "--entrypoints.web.address=:80"
-      - "--entrypoints.websecure.address=:443"
+      - "--entrypoints.ep_web.address=:80"
+      - "--entrypoints.ep_webtls.address=:443"
       - "--certificatesresolvers.myresolver.acme.tlschallenge=true"
       - "--certificatesresolvers.myresolver.acme.email=lrobot.qq@gmail.com"
-      - "--certificatesresolvers.myresolver.acme.storage=/_traefik/acme.json"
+      - "--certificatesresolvers.myresolver.acme.storage=/__traefik_tmp_data/acme.json"
     ports:
       - "80:80"
       - "443:443"
       - "9001:8080"
     volumes:
       - ./traefik.yml:/traefik.yml
-      - ./_traefik:/_traefik
       - ./traefik_file_provider:/traefik_file_provider
       - /run/podman/podman.sock:/var/run/docker.sock:ro
   whoami:
@@ -31,8 +30,8 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.whoamilocalhost.rule=Host(`whoami.docker.localhost`)"
       - "traefik.http.routers.whoami80.rule=Host(`whoami.danfestar.cn`)"
-      - "traefik.http.routers.whoami80.entrypoints=web"
+      - "traefik.http.routers.whoami80.entrypoints=ep_web"
       - "traefik.http.routers.whoami443.rule=Host(`whoami.danfestar.cn`)"
-      - "traefik.http.routers.whoami443.entrypoints=websecure"
+      - "traefik.http.routers.whoami443.entrypoints=ep_webtls"
       - "traefik.http.routers.whoami443.tls=true"
       - "traefik.http.routers.whoami443.tls.certresolver=myresolver"

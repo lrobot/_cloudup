@@ -9,6 +9,15 @@ if [[ "x$SCRIPT_DIR" == "x" ]] ; then echo waring can not get SCRIPT_DIR, dont t
 #[[ "x$0" == "x-ash" ]]  is source ash script case
 #
 echodo() { echo _run_cmd:"$@"; $@; }
+cd ${SCRIPT_DIR}
 
-./.miniserve_base.sh www.danfestar.cn ${SCRIPT_DIR}/www
+_local_domain_name=$1
+[ "x$_local_domain_name" == "x" ] && _local_domain_name=$env_domain_name_www
+[ "x$_local_domain_name" == "x" ] && _local_domain_name=www.$env_domain_name
+[ "x$_local_domain_name" == "x" ] && {
+  echo "no domain name"
+  exit
+}
+
+echodo ./.miniserve_base.sh ${_local_domain_name} ${SCRIPT_DIR}/www
 

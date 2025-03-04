@@ -1,23 +1,24 @@
 api:
+  basePath: /traefik
   insecure: true
 # log:
 #   level: DEBUG
-#   filePath: /_traefik/traefik.log
+#   filePath: /__traefik_tmp_data/traefik.log
 # accessLog:
-#   filePath: /_traefik/access.log
+#   filePath: /__traefik_tmp_data/access.log
 providers:
   docker: {}
   file:
-    directory: /traefik_file_provider
+    directory: /traefik_file_provider/data
     watch: true
 entryPoints:
-  web8000:
-    address: ":8000"
-  webtls8443:
-    address: ":8443"
-  web:
+  ep_web9k:
+    address: ":9080"
+  ep_webtls9k:
+    address: ":9443"
+  ep_web:
     address: ":80"
-  websecure:
+  ep_webtls:
     address: ":443"
 
 certificatesResolvers:
@@ -25,6 +26,6 @@ certificatesResolvers:
     acme:
       tlsChallenge: {}
       email: lrobot.qq@gmail.com
-      storage: /_traefik/acme.json
+      storage: /__traefik_tmp_data/acme.json
       # httpChallenge:
       #   entryPoint: web

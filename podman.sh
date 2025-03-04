@@ -12,12 +12,17 @@ err_exit() {
 
 cd $SCRIPT_DIR || err_exit
 
-#podman-compose 
+
+if [ "x$1" == "cn" ] ; then
+update_mirror_cn() {
 cat <<EOF > /etc/apt/sources.list
 deb http://mirrors.tuna.tsinghua.edu.cn/debian bookworm main contrib
 deb http://mirrors.tuna.tsinghua.edu.cn/debian bookworm-updates main contrib
 deb http://mirrors.tuna.tsinghua.edu.cn/debian-security bookworm-security main contrib
 EOF
+}
+fi
+
 
 # docker-compose
 apt update

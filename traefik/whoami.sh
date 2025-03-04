@@ -9,32 +9,38 @@ if [[ "x$SCRIPT_DIR" == "x" ]] ; then echo waring can not get SCRIPT_DIR, dont t
 #[[ "x$0" == "x-ash" ]]  is source ash script case
 #
 echodo() { echo _run_cmd:"$@"; $@; }
+cd ${SCRIPT_DIR}
 
-if [ "x$1" == "" ] ; then
-  echo "Usage: $0 <domain_name> dir"
-  echo "Usage: this is used by other *.sh script"
-  exit 1
-fi
-
-_local_domain_name=${1}
+_local_domain_name=$1
+[ "x$_local_domain_name" == "x" ] && _local_domain_name=$env_domain_name_whoami
+[ "x$_local_domain_name" == "x" ] && _local_domain_name=whoami.$env_domain_name
+[ "x$_local_domain_name" == "x" ] && {
+  echo "no domain name"
+  exit
+}
 CONTAINER_NAME=${_local_domain_name//./_}
-DATA_DIR=$2
-echodo mkdir -p ${DATA_DIR}
-echodo podman stop ${CONTAINER_NAME}
-echodo podman rm ${CONTAINER_NAME}
 
 
-__label_file() {
-  # traefik.docker.network
+
+echo_container_label() {
+if [ "x$1" == "x" ]; then
+   echo ""
+else
 cat <<EOF
 traefik.enable=true
-traefik.http.routers.rt_${CONTAINER_NAME}.rule=Host(\`${_local_domain_name}\`)
-traefik.http.routers.rt_${CONTAINER_NAME}.entrypoints=ep_webtls,ep_web
-traefik.http.routers.rt_${CONTAINER_NAME}.tls.certresolver=myresolver
-traefik.http.routers.rt_${CONTAINER_NAME}.service=srv_${CONTAINER_NAME}
-traefik.http.services.srv_${CONTAINER_NAME}.loadbalancer.server.port=8080
+traefik.http.routers.rt_whoamilocalhost.rule=Host(\`whoami.docker.localhost\`)
+traefik.http.routers.rt_whoami.rule=Host(\`${1}\`)
+traefik.http.routers.rt_whoami.entrypoints=ep_web,ep_webtls
+traefik.http.routers.rt_whoami.tls.certresolver=myresolver
 EOF
+fi
 }
 
-echodo __label_file
-echodo podman run --name ${CONTAINER_NAME} -d -it --label-file <(__label_file)  -v ${DATA_DIR}:/tmp  docker.io/svenstaro/miniserve --index index.html /tmp
+echodo echo_container_label $_local_domain_name
+echodo podman stop ${CONTAINER_NAME}
+echodo podman rm ${CONTAINER_NAME}
+podman run --rm -d \
+  --name ${CONTAINER_NAME} \
+  --label-file <(echo_container_label $_local_domain_name) \
+  traefik/whoami
+
