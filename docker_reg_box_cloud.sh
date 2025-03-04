@@ -9,17 +9,20 @@ if [[ "x$SCRIPT_DIR" == "x" ]] ; then echo waring can not get SCRIPT_DIR, dont t
 #[[ "x$0" == "x-ash" ]]  is source ash script case
 #
 echodo() { echo _run_cmd:"$@"; $@; }
-CONTAINER_NAME=qfilexchange_containerbox
+if [ "x$1" == "x" ] ; then
+   echo $0 <dommain_name>
+   exit
+else
+  DOMAIN_NAME=$1
+fi
+
+CONTAINER_NAME=docker_reg_box_cloud
 DATA_DIR=/_data${SCRIPT_DIR}/${CONTAINER_NAME}
 echodo mkdir -p ${DATA_DIR}
 echodo podman stop ${CONTAINER_NAME}
 echodo podman rm ${CONTAINER_NAME}
 
-DOMAIN_NAME=registry.danfestar.cn
-
 run_with_tls() {
-
-
 echodo podman run --name ${CONTAINER_NAME} -d \
 --restart unless-stopped \
 -p 8444:443 \
