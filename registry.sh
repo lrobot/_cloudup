@@ -9,42 +9,29 @@ if [[ "x$SCRIPT_DIR" == "x" ]] ; then echo waring can not get SCRIPT_DIR, dont t
 #[[ "x$0" == "x-ash" ]]  is source ash script case
 #
 echodo() { echo _run_cmd:"$@"; $@; }
-if [ "x$1" == "x" ] ; then
-   echo $0 <dommain_name>
-   exit
-else
-  DOMAIN_NAME=$1
-fi
+cd ${SCRIPT_DIR}
 
-CONTAINER_NAME=docker_reg_box_cloud
+_local_domain_name=$1
+[ "x$_local_domain_name" == "x" ] && _local_domain_name=$env_domain_name_registry
+[ "x$_local_domain_name" == "x" ] && _local_domain_name=registry.$env_domain_name
+[ "x$_local_domain_name" == "x" ] && {
+  echo "no domain name"
+  exit
+}
+CONTAINER_NAME=${_local_domain_name//./_}
+
+
 DATA_DIR=/_data${SCRIPT_DIR}/${CONTAINER_NAME}
 echodo mkdir -p ${DATA_DIR}
 echodo podman stop ${CONTAINER_NAME}
 echodo podman rm ${CONTAINER_NAME}
 
-run_with_tls() {
-echodo podman run --name ${CONTAINER_NAME} -d \
---restart unless-stopped \
--p 8444:443 \
--v /opt/_certbot/etc_letsencrypt/live/${DOMAIN_NAME}/fullchain.pem:/certs/fullchain.pem \
--v /opt/_certbot/etc_letsencrypt/live/${DOMAIN_NAME}/privkey.pem:/certs/privkey.pem \
--v ${DATA_DIR}:/registry \
--e STORAGE_PATH=/registry \
--e REGISTRY_STORAGE_FILESYSTEM_ROOTDIRECTORY=/registry \
--e REGISTRY_HTTP_ADDR=0.0.0.0:443 \
--e REGISTRY_HTTP_TLS_CERTIFICATE=/certs/fullchain.pem \
--e REGISTRY_HTTP_TLS_KEY=/certs/privkey.pem \
-docker.io/registry:2
-
-}
-
 __label_file() {
-
 cat <<EOF
 traefik.enable=true
-traefik.http.routers.${CONTAINER_NAME}.rule=Host(\`${DOMAIN_NAME}\`)
-traefik.http.routers.${CONTAINER_NAME}.entrypoints=websecure
-traefik.http.routers.${CONTAINER_NAME}.tls.certresolver=myresolver
+traefik.http.routers.rt_${CONTAINER_NAME}.rule=Host(\`${_local_domain_name}\`)
+traefik.http.routers.rt_${CONTAINER_NAME}.entrypoints=ep_webtls,ep_web
+traefik.http.routers.rt_${CONTAINER_NAME}.tls.certresolver=myresolver
 EOF
 }
 

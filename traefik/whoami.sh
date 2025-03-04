@@ -9,40 +9,38 @@ if [[ "x$SCRIPT_DIR" == "x" ]] ; then echo waring can not get SCRIPT_DIR, dont t
 #[[ "x$0" == "x-ash" ]]  is source ash script case
 #
 echodo() { echo _run_cmd:"$@"; $@; }
-if [ "x$1" == "x" ] ; then
-   echo $0 <dommain_name>
-   exit
+cd ${SCRIPT_DIR}
+
+_local_domain_name=$1
+[ "x$_local_domain_name" == "x" ] && _local_domain_name=$env_domain_name_whoami
+[ "x$_local_domain_name" == "x" ] && _local_domain_name=whoami.$env_domain_name
+[ "x$_local_domain_name" == "x" ] && {
+  echo "no domain name"
+  exit
+}
+CONTAINER_NAME=${_local_domain_name//./_}
+
+
+
+echo_container_label() {
+if [ "x$1" == "x" ]; then
+   echo ""
 else
-DOMAIN_NAME=$1
-fi
-
-
-  whoami:
-    image: traefik/whoami
-    # ports:
-    #   - "8007:80"
-    labels:
-
-CONTAINER_NAME=traefik_whoami
-echodo podman stop ${CONTAINER_NAME}
-echodo podman rm ${CONTAINER_NAME}
-
-
-__label_file() {
 cat <<EOF
 traefik.enable=true
-traefik.http.routers.whoamilocalhost.rule=Host(\`whoami.docker.localhost\`)
-traefik.http.routers.whoami80.rule=Host(\`${DOMAIN_NAME}\`)
-traefik.http.routers.whoami80.entrypoints=web
-traefik.http.routers.whoami443.rule=Host(\`${DOMAIN_NAME}\`)
-traefik.http.routers.whoami443.entrypoints=websecure
-traefik.http.routers.whoami443.tls=true
-traefik.http.routers.whoami443.tls.certresolver=myresolver
+traefik.http.routers.rt_whoamilocalhost.rule=Host(\`whoami.docker.localhost\`)
+traefik.http.routers.rt_whoami.rule=Host(\`${1}\`)
+traefik.http.routers.rt_whoami.entrypoints=ep_web,ep_webtls
+traefik.http.routers.rt_whoami.tls.certresolver=myresolver
 EOF
+fi
 }
 
-
-podman run -d --name ${CONTAINER_NAME}
-  --label-file <(__label_file) \
+echodo echo_container_label $_local_domain_name
+echodo podman stop ${CONTAINER_NAME}
+echodo podman rm ${CONTAINER_NAME}
+podman run --rm -d \
+  --name ${CONTAINER_NAME} \
+  --label-file <(echo_container_label $_local_domain_name) \
   traefik/whoami
 

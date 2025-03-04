@@ -1,6 +1,0 @@
-mtu9001:$apr1$GlaZZ7hi$yChLS4B5tdMfAs9GLZzfj1
-mtu9002:$apr1$/R3f8r0M$4UVdklRHNKpeDIYiCrH2o.
-mtu9003:$apr1$OOt0U6wi$kgO/Hacp7NP8pe0YI0aNX/
-mtu9004:$apr1$VhCTgqF5$EJlKmaQFb3l6KPviwS.fb0
-
-

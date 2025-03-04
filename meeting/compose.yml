@@ -26,7 +26,7 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.mqtt.rule=Host(`meeting.danfestar.cn`) && PathPrefix(`/mqtt`)"
-      - "traefik.http.routers.mqtt.entrypoints=websecure"
+      - "traefik.http.routers.mqtt.entrypoints=ep_webtls"
       - "traefik.http.routers.mqtt.tls.certresolver=myresolver"
       - traefik.http.services.mqtt.loadbalancer.server.port=8083
     image: bytebeamio/rumqttd

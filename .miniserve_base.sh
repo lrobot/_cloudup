@@ -16,8 +16,8 @@ if [ "x$1" == "" ] ; then
   exit 1
 fi
 
-DOMAIN_NAME=${1}
-CONTAINER_NAME=${DOMAIN_NAME//./_}
+_local_domain_name=${1}
+CONTAINER_NAME=${_local_domain_name//./_}
 DATA_DIR=$2
 echodo mkdir -p ${DATA_DIR}
 echodo podman stop ${CONTAINER_NAME}
@@ -28,13 +28,13 @@ __label_file() {
   # traefik.docker.network
 cat <<EOF
 traefik.enable=true
-traefik.http.routers.${CONTAINER_NAME}.rule=Host(\`${DOMAIN_NAME}\`)
-traefik.http.routers.${CONTAINER_NAME}.entrypoints=websecure
-traefik.http.routers.${CONTAINER_NAME}.tls.certresolver=myresolver
-traefik.http.routers.${CONTAINER_NAME}.service=${CONTAINER_NAME}_service
-traefik.http.services.${CONTAINER_NAME}_service.loadbalancer.server.port=8080
+traefik.http.routers.rt_${CONTAINER_NAME}.rule=Host(\`${_local_domain_name}\`)
+traefik.http.routers.rt_${CONTAINER_NAME}.entrypoints=ep_webtls,ep_web
+traefik.http.routers.rt_${CONTAINER_NAME}.tls.certresolver=myresolver
+traefik.http.routers.rt_${CONTAINER_NAME}.service=srv_${CONTAINER_NAME}
+traefik.http.services.srv_${CONTAINER_NAME}.loadbalancer.server.port=8080
 EOF
 }
 
-#-p 8080:8080
+echodo __label_file
 echodo podman run --name ${CONTAINER_NAME} -d -it --label-file <(__label_file)  -v ${DATA_DIR}:/tmp  docker.io/svenstaro/miniserve --index index.html /tmp

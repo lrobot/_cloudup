@@ -9,6 +9,16 @@ if [[ "x$SCRIPT_DIR" == "x" ]] ; then echo waring can not get SCRIPT_DIR, dont t
 #[[ "x$0" == "x-ash" ]]  is source ash script case
 #
 echodo() { echo _run_cmd:"$@"; $@; }
+cd ${SCRIPT_DIR}
+
+_local_domain_name=$1
+[ "x$_local_domain_name" == "x" ] && _local_domain_name=$env_domain_name_www
+[ "x$_local_domain_name" == "x" ] && _local_domain_name=www.$env_domain_name
+[ "x$_local_domain_name" == "x" ] && {
+  echo "no domain name"
+  exit
+}
+
 CONTAINER_NAME=meeting
 DATA_DIR=/_data${SCRIPT_DIR}/${CONTAINER_NAME}
 echodo mkdir -p ${DATA_DIR}
@@ -24,8 +34,8 @@ DOMAIN_NAME=meeting.danfestar.cn
 __label_file() {
 cat <<EOF
 traefik.enable=true
-traefik.http.routers.${CONTAINER_NAME}.rule=Host(\`${DOMAIN_NAME}\`)
-traefik.http.routers.${CONTAINER_NAME}.entrypoints=websecure
+traefik.http.routers.${CONTAINER_NAME}.rule=Host(\`${_local_domain_name}\`)
+traefik.http.routers.${CONTAINER_NAME}.entrypoints=ep_webtls
 traefik.http.routers.${CONTAINER_NAME}.tls.certresolver=myresolver
 EOF
 }
