@@ -88,7 +88,7 @@ socksdisable(){
   prefixechodo export SBT_OPTS="$SBT_OPTS_ORIGIN"
 }
 
-which git && {
+which git > /dev/null 2>&1 && {
 
 gitsu() {
   (set -x;
