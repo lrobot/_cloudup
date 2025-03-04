@@ -18,8 +18,7 @@ _local_domain_name=$1
   echo "no domain name"
   exit
 }
-CONTAINER_NAME=${_local_domain_name//./_}
-
+CONTAINER_NAME=traefik_admin
 _local_env_admin_auth_str=${env_admin_auth_str}
 export env_admin_auth_str=""
 
