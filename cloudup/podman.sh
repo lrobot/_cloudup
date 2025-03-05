@@ -9,6 +9,7 @@ err_exit() {
   echo $*
   exit -1
 }
+echodo() { echo _run_cmd:"$@"; $@; }
 
 cd $SCRIPT_DIR || err_exit
 
@@ -32,13 +33,18 @@ systemctl stop dnsmasq
 systemctl disable dnsmasq
 # https://github.com/containers/podman-compose
 if [ -f podman-compose.py ] ; then
-cp podman-compose.py /usr/local/bin/podman-compose
-chmod a+x /usr/local/bin/podman-compose
+  echodo cp podman-compose.py /usr/local/bin/podman-compose
 else
+if [ "x$cloudup_url" != "x" ] ; then
+  echodo curl -sSfL $cloudup_url/podman-compose.py -o /tmp/podman-compose.py && echodo cp -a /tmp/podman-compose.py /usr/local/bin/podman-compose
+else
+echo export cloudup_url=xxxxxx 
 echo cp podman-compose.py /usr/local/bin/podman-compose
 echo chmod a+x /usr/local/bin/podman-compose
 fi
+fi
 
+chmod a+x /usr/local/bin/podman-compose
 grep docker /etc/containers/registries.conf || {
  echo "add docker.io for docker search"
  echo 'unqualified-search-registries = ["docker.io"]' >> /etc/containers/registries.conf
