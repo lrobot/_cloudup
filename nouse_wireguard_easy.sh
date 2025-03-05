@@ -62,7 +62,7 @@ mkdir -p ${DATA_DIR}
 podman stop ${CONTAINER_NAME}
 podman rm ${CONTAINER_NAME}
 echo starting
-# PASSWORD_HASH set as here
+# PASSWORD_HASH set by below eval cmd
 eval $(podman run --rm ghcr.io/wg-easy/wg-easy wgpw ${env_admin_password})
 podman run --rm -d \
   --name=${CONTAINER_NAME} \
