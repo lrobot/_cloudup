@@ -33,14 +33,6 @@ echo_container_label() {
 ##this common cfg
 cat <<EOF
 traefik.enable=true
-traefik.http.middlewares.mw_rs_http2https.redirectscheme.scheme=https
-traefik.http.middlewares.mw_rs_http2https.redirectscheme.permanent=true
-traefik.http.middlewares.mw_rs_http2tls9443.redirectscheme.scheme=https
-traefik.http.middlewares.mw_rs_http2tls9443.redirectscheme.permanent=true
-traefik.http.middlewares.mw_rs_http2tls9443.redirectscheme.port=9443
-traefik.http.middlewares.mv_ba_traefikauth.basicAuth.users=${_local_env_admin_auth_str}
-traefik.http.middlewares.mv_sp_test.stripprefix.prefixes=/test_remove_traefik_prefix
-
 traefik.http.services.WireGuardService.loadbalancer.server.port=51821
 traefik.http.routers.WireGuardRoute.service=WireGuardService
 traefik.http.routers.WireGuardRoute.rule=Host(\`$1\`)

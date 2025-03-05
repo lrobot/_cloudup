@@ -19,8 +19,8 @@ _local_domain_name=$1
   exit
 }
 CONTAINER_NAME=traefik_admin
-_local_env_admin_auth_str=${env_admin_auth_str}
-export env_admin_auth_str=""
+_local_env_admin_password_hash=$(podman run --rm --entrypoint "" httpd:2 htpasswd -nbm admin ${env_admin_password})
+export env_admin_password=""
 
 mkdir -p __traefik_tmp_data
 
@@ -33,7 +33,7 @@ traefik.http.middlewares.mw_rs_http2https.redirectscheme.permanent=true
 traefik.http.middlewares.mw_rs_http2tls9443.redirectscheme.scheme=https
 traefik.http.middlewares.mw_rs_http2tls9443.redirectscheme.permanent=true
 traefik.http.middlewares.mw_rs_http2tls9443.redirectscheme.port=9443
-traefik.http.middlewares.mv_ba_traefikauth.basicAuth.users=${_local_env_admin_auth_str}
+traefik.http.middlewares.mv_ba_traefikauth.basicAuth.users=${_local_env_admin_password_hash}
 traefik.http.middlewares.mv_sp_test.stripprefix.prefixes=/test_remove_traefik_prefix
 EOF
 
