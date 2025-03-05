@@ -28,8 +28,11 @@ __label_file() {
   # traefik.docker.network
 cat <<EOF
 traefik.enable=true
+traefik.http.routers.rt_http${CONTAINER_NAME}.rule=Host(\`${_local_domain_name}\`)
+traefik.http.routers.rt_http${CONTAINER_NAME}.entrypoints=ep_web
+traefik.http.routers.rt_http${CONTAINER_NAME}.middlewares=mw_rs_http2https
 traefik.http.routers.rt_${CONTAINER_NAME}.rule=Host(\`${_local_domain_name}\`)
-traefik.http.routers.rt_${CONTAINER_NAME}.entrypoints=ep_webtls,ep_web
+traefik.http.routers.rt_${CONTAINER_NAME}.entrypoints=ep_webtls
 traefik.http.routers.rt_${CONTAINER_NAME}.tls.certresolver=myresolver
 traefik.http.routers.rt_${CONTAINER_NAME}.service=srv_${CONTAINER_NAME}
 traefik.http.services.srv_${CONTAINER_NAME}.loadbalancer.server.port=8080

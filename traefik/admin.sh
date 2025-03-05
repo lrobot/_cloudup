@@ -25,23 +25,49 @@ export env_admin_auth_str=""
 mkdir -p __traefik_tmp_data
 
 echo_container_label() {
-if [ "x$1" == "x" ]; then
-   echo ""
-else
-	# 
-# if no traefik.http.routers.rt_traefik_dashboard.entrypoints, default use all entrypoints
+##this common cfg
 cat <<EOF
 traefik.enable=true
+traefik.http.middlewares.mw_rs_http2https.redirectscheme.scheme=https
+traefik.http.middlewares.mw_rs_http2https.redirectscheme.permanent=true
+traefik.http.middlewares.mw_rs_http2tls9443.redirectscheme.scheme=https
+traefik.http.middlewares.mw_rs_http2tls9443.redirectscheme.permanent=true
+traefik.http.middlewares.mw_rs_http2tls9443.redirectscheme.port=9443
+traefik.http.middlewares.mv_ba_traefikauth.basicAuth.users=${_local_env_admin_auth_str}
+traefik.http.middlewares.mv_sp_test.stripprefix.prefixes=/test_remove_traefik_prefix
+EOF
+
+if [ "x$1" != "x" ]; then
+# 
+# if no traefik.http.routers.rt_traefik_dashboard.entrypoints, default use all entrypoints
+cat <<EOF
+#80->9443
+traefik.http.routers.rt_traefik_80.rule=Host(\`${1}\`)
+traefik.http.routers.rt_traefik_80.entrypoints=ep_web
+traefik.http.routers.rt_traefik_80.middlewares=mw_rs_http2tls9443
+#443->9443
+traefik.http.routers.rt_traefik_443.rule=Host(\`${1}\`)
+traefik.http.routers.rt_traefik_443.entrypoints=ep_webtls
+traefik.http.routers.rt_traefik_443.tls.certresolver=myresolver
+traefik.http.routers.rt_traefik_443.middlewares=mw_rs_http2tls9443
+
+#redirct to /traefik
+traefik.http.routers.rt_traefik_root.rule=Host(\`${1}\`) && Path(\`/\`)
+traefik.http.routers.rt_traefik_root.entrypoints=ep_webtls9k
+traefik.http.routers.rt_traefik_root.tls.certresolver=myresolver
+traefik.http.routers.rt_traefik_root.middlewares=mw_rr_traefik
+traefik.http.middlewares.mw_rr_traefik.redirectregex.regex=^https://${1}:9443/?$
+traefik.http.middlewares.mw_rr_traefik.redirectregex.replacement=https://${1}:9443/traefik
+
+#to api@internal
 traefik.http.routers.rt_traefik_dashboard.rule=Host(\`${1}\`) && (PathPrefix(\`/traefik\`) || PathPrefix(\`/test_remove_traefik_prefix\`))
-traefik.http.routers.rt_traefik_dashboard.entrypoints=ep_webtls9k,ep_web9k
-traefik.http.routers.rt_traefik_dashboard.service=api@internal
-traefik.http.routers.rt_traefik_dashboard.middlewares=admin_auth,remove_traefik_prefix
+traefik.http.routers.rt_traefik_dashboard.entrypoints=ep_webtls9k
 traefik.http.routers.rt_traefik_dashboard.tls.certresolver=myresolver
-traefik.http.middlewares.admin_auth.basicAuth.users=${_local_env_admin_auth_str}
-traefik.http.middlewares.remove_traefik_prefix.stripprefix.prefixes=/test_remove_traefik_prefix
+traefik.http.routers.rt_traefik_dashboard.service=api@internal
+traefik.http.routers.rt_traefik_dashboard.middlewares=mv_ba_traefikauth,mv_sp_test
 EOF
 fi
-#
+
 }
 echodo echo_container_label $_local_domain_name
 echodo podman stop ${CONTAINER_NAME}
