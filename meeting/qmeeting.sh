@@ -12,21 +12,20 @@ echodo() { echo _run_cmd:"$@"; $@; }
 cd ${SCRIPT_DIR}
 
 _local_domain_name=$1
-[ "x$_local_domain_name" == "x" ] && _local_domain_name=$env_domain_name_www
-[ "x$_local_domain_name" == "x" ] && _local_domain_name=www.$env_domain_name
+[ "x$_local_domain_name" == "x" ] && _local_domain_name=$env_domain_name_meeting
+[ "x$_local_domain_name" == "x" ] && _local_domain_name=meeting.$env_domain_name
 [ "x$_local_domain_name" == "x" ] && {
   echo "no domain name"
   exit
 }
 
-CONTAINER_NAME=meeting
+CONTAINER_NAME=${_local_domain_name//./_}
 DATA_DIR=/_data${SCRIPT_DIR}/${CONTAINER_NAME}
 echodo mkdir -p ${DATA_DIR}
 echodo podman stop ${CONTAINER_NAME}
 echodo podman rm ${CONTAINER_NAME}
 echodo podman rmi qmeeting:latest
 
-DOMAIN_NAME=meeting.danfestar.cn
 #[ -f ./.env ] && source ./.env
 
 #-p 8085:5000  
@@ -45,6 +44,6 @@ echodo podman run --tls-verify=false --name ${CONTAINER_NAME} -d \
 -p 9002:80 \
 -v ${DATA_DIR}:/data \
 --label-file <(__label_file) \
-docker://registry.danfestar.cn/qmeeting:latest
+docker://registry.rbat.tk/qmeeting:latest
 echodo podman logs -f ${CONTAINER_NAME}
 

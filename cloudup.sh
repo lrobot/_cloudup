@@ -19,5 +19,5 @@ _local_domain_name=$1
   exit
 }
 
-echodo ./.miniserve_base.sh ${_local_domain_name} ${SCRIPT_DIR}
+echodo ./.miniserve_base.sh ${_local_domain_name} ${SCRIPT_DIR}/cloudup
 

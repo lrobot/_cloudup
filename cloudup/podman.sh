@@ -23,16 +23,21 @@ EOF
 }
 fi
 
-
+# htpasswd need apache2-utils
 # docker-compose
 apt update
-apt install -y curl podman python3-pip git dbus-broker vim dnsmasq bzip2 golang-github-containernetworking-plugin-dnsname podman-compose podman-docker
-# https://github.com/containers/podman-compose
-cp podman-compose.py /usr/local/bin/podman-compose
-chmod a+x /usr/local/bin/podman-compose
+apt install -y apache2-utils curl podman python3-pip git dbus-broker vim dnsmasq bzip2 golang-github-containernetworking-plugin-dnsname podman-compose podman-docker
 systemctl restart dbus-broker
 systemctl stop dnsmasq
 systemctl disable dnsmasq
+# https://github.com/containers/podman-compose
+if [ -f podman-compose.py ] ; then
+cp podman-compose.py /usr/local/bin/podman-compose
+chmod a+x /usr/local/bin/podman-compose
+else
+echo cp podman-compose.py /usr/local/bin/podman-compose
+echo chmod a+x /usr/local/bin/podman-compose
+fi
 
 grep docker /etc/containers/registries.conf || {
  echo "add docker.io for docker search"

@@ -19,7 +19,7 @@ _local_domain_name=$1
   exit
 }
 CONTAINER_NAME=traefik_admin
-_local_env_admin_password_hash=$(podman run --rm --entrypoint "" httpd:2 htpasswd -nbm admin ${env_admin_password})
+_local_env_admin_password_hash=$(htpasswd -nbm admin ${env_admin_password})
 export env_admin_password=""
 
 mkdir -p __traefik_tmp_data
