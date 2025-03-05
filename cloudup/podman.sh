@@ -35,8 +35,8 @@ systemctl disable dnsmasq
 if [ -f podman-compose.py ] ; then
   echodo cp podman-compose.py /usr/local/bin/podman-compose
 else
-if [ "x$cloudup_url" != "x" ] ; then
-  echodo curl -sSfL $cloudup_url/podman-compose.py -o /tmp/podman-compose.py && echodo cp -a /tmp/podman-compose.py /usr/local/bin/podman-compose
+if [ "x$cloudup_" != "x" ] ; then
+  echodo curl -sSfL https://$cloudup_/podman-compose.py -o /tmp/podman-compose.py && echodo cp -a /tmp/podman-compose.py /usr/local/bin/podman-compose
 else
 echo export cloudup_url=xxxxxx 
 echo cp podman-compose.py /usr/local/bin/podman-compose

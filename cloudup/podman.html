@@ -1,19 +1,32 @@
 <html>
 <body>
 <pre>
+export cloudup_=domain.com
+
+
 #none-cn
-export cloudup_url=https://cloudup.danfestar.cn ; curl -sSfL $cloudup_url/podman.sh | bash
-</pre>
-
-<p>
-<p>
-<p>
+curl -sSfL https://$cloudup_/podman.sh | bash
 
 
-<pre>
 #cn
-export cloudup_url=https://cloudup.danfestar.cn ; curl -sSfL $cloudup_url/podman.sh | bash -s -- cn
+curl -sSfL https://$cloudup_/podman.sh | bash -s -- cn
+
+#bynfs
+apt install -y nfs-common
+mkdir -p /nfs.remote
+mount -t nfs -o ro $cloudup_:/nfs.remote /nfs.remote
+/nfs.remote/_cloudup/cloudup/podman.sh
+
+#fstab
+mkdir -p /nfs.remote
+echo ${cloudup_}:/nfs.remote /nfs.remote nfs  defaults,ro,nofail 0 0 >> /etc/fstab
 </pre>
+
+<p>
+<p>
+<p>
+
+
 
 </body>
 </html>
