@@ -11,6 +11,9 @@ if [[ "x$SCRIPT_DIR" == "x" ]] ; then echo waring can not get SCRIPT_DIR, dont t
 echodo() { echo _run_cmd:"$@"; $@; }
 cd ${SCRIPT_DIR}
 
+#this is simple, can not add client2client peer
+#maybe try: https://github.com/ngoduykhanh/wireguard-ui
+
 _local_domain_name=$1
 [ "x$_local_domain_name" == "x" ] && _local_domain_name=$env_domain_name_wireguard
 [ "x$_local_domain_name" == "x" ] && _local_domain_name=wireguard.$env_domain_name
@@ -50,14 +53,21 @@ traefik.http.routers.WireGuardRouteSSL.tls.certresolver=myresolver
 EOF
 }
 echodo echo_container_label $_local_domain_name
-
+# podman run --rm -it ghcr.io/wg-easy/wg-easy wgpw 'your_admin_password'
+#  --restart unless-stopped
+#  \
 CONTAINER_NAME=${_local_domain_name//./_}
 DATA_DIR=/_data${SCRIPT_DIR}/${CONTAINER_NAME}
 mkdir -p ${DATA_DIR}
-podman run -d \
+podman stop ${CONTAINER_NAME}
+podman rm ${CONTAINER_NAME}
+echo starting
+# PASSWORD_HASH set as here
+eval $(podman run --rm ghcr.io/wg-easy/wg-easy wgpw ${env_admin_password})
+podman run --rm -d \
   --name=${CONTAINER_NAME} \
   -e WG_HOST=${_local_domain_name} \
-  -e PASSWORD_HASH='$2a$12$yvG3l98f47n4tjESO.SDzumspGaNpWNaDOzhf9FNJL4SIUSWQTyDS' \
+  -e PASSWORD_HASH=${PASSWORD_HASH} \
   -v ${DATA_DIR}:/etc/wireguard \
   -p 51820:51820/udp \
   -p 51821:51821/tcp \
@@ -66,7 +76,8 @@ podman run -d \
   --cap-add=NET_RAW \
   --sysctl="net.ipv4.conf.all.src_valid_mark=1" \
   --sysctl="net.ipv4.ip_forward=1" \
-  --restart unless-stopped \
   --label-file <(echo_container_label $_local_domain_name) \
-  ghcr.io/wg-easy/wg-easy
+  --entrypoint "" \
+  ghcr.io/wg-easy/wg-easy \
+  docker-entrypoint.sh /usr/bin/dumb-init node server.js
 
