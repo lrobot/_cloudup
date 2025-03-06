@@ -21,3 +21,6 @@ _local_domain_name=$1
 
 CONTAINER_NAME=${_local_domain_name//./_}
 podman exec -it ${CONTAINER_NAME} sh -c "headscale nodes list; headscale users list; headscale apikey list; headscale routes list;"
+#ref https://icloudnative.io/posts/how-to-set-up-or-migrate-headscale/
+ip route show table 52
+
