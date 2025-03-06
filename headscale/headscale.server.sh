@@ -44,11 +44,11 @@ else
 echodo __label_file
 podman stop ${CONTAINER_NAME}
 podman rm ${CONTAINER_NAME}
-cat etc_headscale/config.yaml | sed "s/headscale.domain.com/${_local_domain_name}/" > etc_headscale/__config.yaml
+cat config.yaml | sed "s/headscale.domain.com/${_local_domain_name}/" > .__config.yaml
 podman run --rm \
   --detach \
   --name ${CONTAINER_NAME} \
-  --volume $(pwd)/etc_headscale/__config.yaml:/etc/headscale/config.yaml \
+  --volume $(pwd)/.__config.yaml:/etc/headscale/config.yaml \
   --volume ${DATA_DIR}:/var/lib/headscale \
   --publish 0.0.0.0:8080:8080 \
   --publish 0.0.0.0:9090:9090 \
