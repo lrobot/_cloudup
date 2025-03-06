@@ -1,6 +1,6 @@
 api:
   basePath: /traefik
-  insecure: true
+#  insecure: true
 # log:
 #   level: DEBUG
 #   filePath: /__traefik_tmp_data/traefik.log
@@ -14,8 +14,10 @@ providers:
 entryPoints:
   ep_web9k:
     address: ":9080"
-  ep_webtls9k:
-    address: ":9443"
+  ep_web8k:
+    address: ":8080"
+  ep_webtls8k:
+    address: ":8443"
   ep_web:
     address: ":80"
   ep_webtls:

@@ -1,0 +1,16 @@
+http:
+  services:
+    homegeo:
+      loadBalancer:
+        servers:
+          - url: "http://192.168.1.163:8080"
+  routers:
+    router_www_http:
+      rule: "Host(`www.danfestar.cn`)"
+      service: "homegeo"
+    router_www_tls:
+      tls:
+        certResolver: "myresolver"
+      rule: "Host(`www.danfestar.cn`)"
+      service: "homegeo"
+
