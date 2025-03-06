@@ -24,6 +24,8 @@ echo '### in headscale server you can:'
 echo 'headscale users create <user>'
 echo 'headscale nodes list'
 echo 'headscale users list'
+echo 'headscale apikey list'
+echo 'headscale apikey create'
 echo 
 echo '### in client use tailscale by:'
 echo 'curl -fsSL https://tailscale.com/install.sh | sh'

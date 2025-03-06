@@ -20,4 +20,4 @@ _local_domain_name=$1
 
 
 CONTAINER_NAME=${_local_domain_name//./_}
-podman exec -it ${CONTAINER_NAME} sh -c "headscale nodes list; headscale users list"
+podman exec -it ${CONTAINER_NAME} sh -c "headscale nodes list; headscale users list; headscale apikey list;"
