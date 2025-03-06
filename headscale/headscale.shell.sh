@@ -20,5 +20,12 @@ _local_domain_name=$1
 
 
 CONTAINER_NAME=${_local_domain_name//./_}
+echo '### in headscale server you can:'
+echo 'headscale users create <user>'
+echo 'headscale nodes list'
+echo 'headscale users list'
+echo 
+echo '### in client use tailscale by:'
+echo 'curl -fsSL https://tailscale.com/install.sh | sh'
+echo tailscale login --login-server https://${_local_domain_name}
 podman exec -it ${CONTAINER_NAME} sh
-

@@ -56,4 +56,5 @@ podman run --rm \
   --label-file <(__label_file) \
   headscale/headscale:v0.25-debug \
   /ko-app/headscale -c /etc/headscale/config.yaml serve
+  echodo ./headscale.shell.sh
 fi
