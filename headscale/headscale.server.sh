@@ -9,20 +9,19 @@ if [[ "x$SCRIPT_DIR" == "x" ]] ; then echo waring can not get SCRIPT_DIR, dont t
 #[[ "x$0" == "x-ash" ]]  is source ash script case
 #
 echodo() { echo _run_cmd:"$@"; $@; }
+cd ${SCRIPT_DIR}
+_local_domain_name=$1
+[ "x$_local_domain_name" == "x" ] && _local_domain_name=$env_domain_name_inet
+[ "x$_local_domain_name" == "x" ] && _local_domain_name=inet.$env_domain_name
+[ "x$_local_domain_name" == "x" ] && {
+  echo "no domain name"
+  exit
+}
 
-if [ "x$1" == "" ] ; then
-  echo "Usage: $0 <domain_name> dir"
-  echo "Usage: this is used by other *.sh script"
-  exit 1
-fi
 
-_local_domain_name=${1}
 CONTAINER_NAME=${_local_domain_name//./_}
-DATA_DIR=$2
-echodo mkdir -p ${DATA_DIR}
-echodo podman stop ${CONTAINER_NAME}
-echodo podman rm ${CONTAINER_NAME}
-
+DATA_DIR=/_data${SCRIPT_DIR}/${CONTAINER_NAME}
+mkdir -p ${DATA_DIR}
 
 __label_file() {
   # traefik.docker.network
@@ -39,5 +38,22 @@ traefik.http.services.srv_${CONTAINER_NAME}.loadbalancer.server.port=8080
 EOF
 }
 
+if [ "x$PODMAN_EXEC" != "x" ]; then
+  podman exec -it ${CONTAINER_NAME} "$@"
+else
 echodo __label_file
-echodo podman run --name ${CONTAINER_NAME} -d -it --label-file <(__label_file)  -v ${DATA_DIR}:/tmp  docker.io/svenstaro/miniserve --index index.html /tmp
+podman stop ${CONTAINER_NAME}
+podman rm ${CONTAINER_NAME}
+cat etc_headscale/config.yaml | sed "s/headscale.domain.com/${_local_domain_name}/" > etc_headscale/__config.yaml
+podman run --rm \
+  --detach \
+  --name ${CONTAINER_NAME} \
+  --volume $(pwd)/etc_headscale/__config.yaml:/etc/headscale/config.yaml \
+  --volume ${DATA_DIR}:/var/lib/headscale \
+  --publish 0.0.0.0:8080:8080 \
+  --publish 0.0.0.0:9090:9090 \
+  --entrypoint "" \
+  --label-file <(__label_file) \
+  headscale/headscale:v0.25-debug \
+  /ko-app/headscale -c /etc/headscale/config.yaml serve
+fi

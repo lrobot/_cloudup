@@ -10,15 +10,15 @@ if [[ "x$SCRIPT_DIR" == "x" ]] ; then echo waring can not get SCRIPT_DIR, dont t
 #
 echodo() { echo _run_cmd:"$@"; $@; }
 cd ${SCRIPT_DIR}
+_local_domain_name=$1
+[ "x$_local_domain_name" == "x" ] && _local_domain_name=$env_domain_name_inet
+[ "x$_local_domain_name" == "x" ] && _local_domain_name=inet.$env_domain_name
+[ "x$_local_domain_name" == "x" ] && {
+  echo "no domain name"
+  exit
+}
 
 
-podman stop headscale
-podman rm headscale
-  #--detach \
-podman run --rm \
-  --name headscale \
-  --volume $(pwd)/etc_headscale:/etc/headscale/ \
-  --publish 127.0.0.1:8080:8080 \
-  --publish 127.0.0.1:9090:9090 \
-  headscale/headscale:v0.25 \
-  serve
+CONTAINER_NAME=${_local_domain_name//./_}
+podman exec -it ${CONTAINER_NAME} sh
+

@@ -28,13 +28,13 @@ if [ "x$1" == "x" ]; then
 else
 cat <<EOF
 traefik.enable=true
-traefik.http.routers.rt_http${CONTAINER_NAME}.rule=Host(\`${_local_domain_name}\`)
-traefik.http.routers.rt_http${CONTAINER_NAME}.entrypoints=ep_web
-traefik.http.routers.rt_http${CONTAINER_NAME}.middlewares=mw_rs_http2https
+traefik.http.routers.rt_${CONTAINER_NAME}_http.rule=Host(\`${_local_domain_name}\`)
+traefik.http.routers.rt_${CONTAINER_NAME}_http.entrypoints=ep_web
+traefik.http.routers.rt_${CONTAINER_NAME}_http.middlewares=mw_rs_http2https
 traefik.http.routers.rt_whoamilocalhost.rule=Host(\`whoami.docker.localhost\`)
-traefik.http.routers.rt_${CONTAINER_NAME}.rule=Host(\`${1}\`)
-traefik.http.routers.rt_${CONTAINER_NAME}.entrypoints=ep_webtls
-traefik.http.routers.rt_${CONTAINER_NAME}.tls.certresolver=myresolver
+traefik.http.routers.rt_${CONTAINER_NAME}_https.rule=Host(\`${1}\`)
+traefik.http.routers.rt_${CONTAINER_NAME}_https.entrypoints=ep_webtls
+traefik.http.routers.rt_${CONTAINER_NAME}_https.tls.certresolver=myresolver
 EOF
 fi
 }
