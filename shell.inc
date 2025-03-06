@@ -109,3 +109,29 @@ podman-composeu_restart() {
   podman-compose up -d
   podman-compose logs -f 
 }
+
+
+_tailscale_up() {
+_local_domain_name=$1
+[ "x$_local_domain_name" == "x" ] && _local_domain_name=$env_domain_name_www
+[ "x$_local_domain_name" == "x" ] && _local_domain_name=www.$env_domain_name
+[ "x$_local_domain_name" == "x" ] && {
+  echo "no domain name"
+  exit
+}
+echo tailscale down
+echo 'net.ipv4.ip_forward = 1' | tee /etc/sysctl.d/ipforwarding.conf
+echo 'net.ipv6.conf.all.forwarding = 1' | tee -a /etc/sysctl.d/ipforwarding.conf
+sysctl -p /etc/sysctl.d/ipforwarding.conf
+echo tailscale up --accept-routes=true --accept-dns=false --reset --login-server=https://$_local_domain_name ${_tailscale_extra_opt}
+}
+
+tailscale_up() {
+	_tailscale_extra_opt=
+	_tailscale_up "$@"
+}
+tailscale_up_home() {
+	_tailscale_extra_opt=--advertise-routes=192.168.1.0/24
+	_tailscale_up "$@"
+}
+
