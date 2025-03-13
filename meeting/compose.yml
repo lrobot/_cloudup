@@ -1,6 +1,4 @@
 # if network_mode host not work may be need install new podman-compose by: curl -o /usr/local/bin/podman-compose https://raw.githubusercontent.com/containers/podman-compose/main/podman_compose.py
-ARG HOST_UID
-ENV HOST_UID ${HOST_UID}
 
 services:
   coturn:
@@ -28,7 +26,7 @@ services:
       - "8083:8083"
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.mqtt.rule=Host(`meeting.danfestar.cn`) && PathPrefix(`/mqtt`)"
+      - "traefik.http.routers.mqtt.rule=Host(`${KMEETING_DOMAIN_NAME}`) && PathPrefix(`/mqtt`)"
       - "traefik.http.routers.mqtt.entrypoints=ep_webtls"
       - "traefik.http.routers.mqtt.tls.certresolver=myresolver"
       - "traefik.http.services.mqtt.loadbalancer.server.port=8083"

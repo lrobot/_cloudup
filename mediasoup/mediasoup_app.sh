@@ -12,19 +12,18 @@ echodo() { echo _run_cmd:"$@"; $@; }
 cd ${SCRIPT_DIR}
 
 _local_domain_name=$1
-[ "x$_local_domain_name" == "x" ] && _local_domain_name=$env_domain_name_registry
-[ "x$_local_domain_name" == "x" ] && _local_domain_name=registry.$env_domain_name
+[ "x$_local_domain_name" == "x" ] && _local_domain_name=$env_domain_name_mediasoup
+[ "x$_local_domain_name" == "x" ] && _local_domain_name=mediasoup.$env_domain_name
 [ "x$_local_domain_name" == "x" ] && {
   echo "no domain name"
   exit
 }
-CONTAINER_NAME=${_local_domain_name//./_}
+CONTAINER_NAME=${_local_domain_name//./_}_app
 
 
 DATA_DIR=/_data${SCRIPT_DIR}/${CONTAINER_NAME}
-echodo mkdir -p ${DATA_DIR}
-echodo podman stop ${CONTAINER_NAME}
-echodo podman rm ${CONTAINER_NAME}
+#echodo mkdir -p ${DATA_DIR}
+
 
 __label_file() {
 cat <<EOF
@@ -32,21 +31,23 @@ traefik.enable=true
 traefik.http.routers.rt_${CONTAINER_NAME}.rule=Host(\`${_local_domain_name}\`)
 traefik.http.routers.rt_${CONTAINER_NAME}.entrypoints=ep_webtls
 traefik.http.routers.rt_${CONTAINER_NAME}.tls.certresolver=myresolver
+traefik.http.routers.rt_${CONTAINER_NAME}.service=srv_${CONTAINER_NAME}
+traefik.http.services.srv_${CONTAINER_NAME}.loadbalancer.server.port=8080
 EOF
 }
 
 run_with_notls() {
 
-echodo podman run --name ${CONTAINER_NAME} -d \
---restart unless-stopped \
--p 5000:5000 \
--v ${DATA_DIR}:/registry \
--e STORAGE_PATH=/registry \
--e REGISTRY_STORAGE_FILESYSTEM_ROOTDIRECTORY=/registry \
--e REGISTRY_HTTP_ADDR=0.0.0.0:5000 \
---label-file <(__label_file) \
-docker.io/registry:2
-
+echodo __label_file
+echodo podman stop ${CONTAINER_NAME}
+echodo podman rm ${CONTAINER_NAME}
+echodo podman run \
+	--rm \
+	-d \
+	--label-file=<(__label_file) \
+	--name=${CONTAINER_NAME} \
+	docker://registry.rbat.tk/mediasoup-demo:latest ./start_app.sh
+echodo podman logs -f ${CONTAINER_NAME}
 }
 
 
