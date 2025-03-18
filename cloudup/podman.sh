@@ -28,6 +28,12 @@ fi
 # docker-compose
 apt update
 apt install -y apache2-utils curl podman python3-pip git dbus-broker vim dnsmasq bzip2 golang-github-containernetworking-plugin-dnsname podman-compose podman-docker
+sysctl vm.mmap_min_addr=0
+# https://docs.daocloud.io/en/amamba/user-guide/pipeline/podman#install-qemu-binary-files
+# https://www.kernel.org/doc/html/latest/admin-guide/binfmt-misc.html
+# https://wiki.debian.org/QemuUserEmulation
+apt install -y binfmt-support qemu-user-static
+update-binfmts --display
 systemctl restart dbus-broker
 systemctl stop dnsmasq
 systemctl disable dnsmasq
