@@ -24,7 +24,7 @@ DATA_DIR=/_data${SCRIPT_DIR}/${CONTAINER_NAME}
 echodo mkdir -p ${DATA_DIR}
 echodo podman stop ${CONTAINER_NAME}
 echodo podman rm ${CONTAINER_NAME}
-echodo podman rmi kmeeting:latest
+echodo podman rmi -f kmeeting:latest
 
 #[ -f ./.env ] && source ./.env
 
@@ -36,12 +36,13 @@ traefik.enable=true
 traefik.http.routers.${CONTAINER_NAME}.rule=Host(\`${_local_domain_name}\`)
 traefik.http.routers.${CONTAINER_NAME}.entrypoints=ep_webtls
 traefik.http.routers.${CONTAINER_NAME}.tls.certresolver=myresolver
+traefik.http.routers.rt_${CONTAINER_NAME}_https.service=srv_${CONTAINER_NAME}
+traefik.http.services.srv_${CONTAINER_NAME}.loadbalancer.server.port=80
 EOF
 }
 
-
+echodo __label_file
 echodo podman run --tls-verify=false --name ${CONTAINER_NAME} -d \
--p 9002:80 \
 -v ${DATA_DIR}:/data \
 --label-file <(__label_file) \
 docker://registry.rbat.tk/kmeeting:latest

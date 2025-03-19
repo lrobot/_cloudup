@@ -7,13 +7,13 @@ services:
     command: ["-c", "/etc/coturn/turnserver.conf"]
     volumes: # chmod 777 coturn.conf
       - "./coturn.conf:/etc/coturn/turnserver.conf"
-  turnrs:
+  #turnrs:
     # https://github.com/mycrl/turn-rs?tab=readme-ov-file#docker
-    network_mode: "host"
-    image: ghcr.io/mycrl/turn-server
-    volumes:
-      - "./turn_rs.yml:/etc/turn-server/config.toml"
-    restart: always
+    #network_mode: "host"
+    #image: ghcr.io/mycrl/turn-server
+    #volumes:
+    #  - "./turn_rs.yml:/etc/turn-server/config.toml"
+    #restart: always
   kurento:
     network_mode: "host"
     image: kurento/kurento-media-server:7.0.0
