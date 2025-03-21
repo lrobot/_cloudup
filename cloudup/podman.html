@@ -6,45 +6,49 @@
   <p>
   <p>
   <p>
-<pre id="cloudup_export">
-export cloudup_=https://domain.com
+<pre id="cloudup_show">
 </pre>
-<p>
-<p>
-<p>
-<pre>
+
+<pre id="cloudup_hidden" style="display: none;">
 #none-cn
+export cloudup_=https://domain.com
 curl -sSfL https://$cloudup_/podman.sh | bash
 
 
 #cn
+export cloudup_=https://domain.com
 curl -sSfL https://$cloudup_/podman.sh | bash -s -- cn
 
+
 #bynfs
+export cloudup_=https://domain.com
 apt install -y nfs-common
 mkdir -p /nfs.remote
 mount -t nfs -o ro $cloudup_:/nfs.remote /nfs.remote
 /nfs.remote/_cloudup/cloudup/podman.sh
 
+
 #fstab
+export cloudup_=https://domain.com
 mkdir -p /nfs.remote
 echo ${cloudup_}:/nfs.remote /nfs.remote nfs  defaults,ro,nofail 0 0 >> /etc/fstab
 </pre>
-
-<p>
-<p>
-<p>
-
-
-
 </body>
 <script>
-  //get url host and console.log it
+  function showCloudup() {
+    var cloudup_show = document.querySelector('#cloudup_show');
+    var cloudup_export = document.querySelector('#cloudup_hidden');
+    cloudup_show.innerHTML = cloudup_export.innerHTML;
+  }
+  showCloudup();
+  function showCloudupByHost(host) {
+    var cloudup_show = document.querySelector('#cloudup_show');
+    var cloudup_export = document.querySelector('#cloudup_hidden');
+    cloudup_show.innerHTML = cloudup_export.innerHTML.replaceAll('https://domain.com', host);
+  }
   function updateCloudupExport() {
     var host = document.querySelector('#cloudup_host').value;
-    console.log(host);
-    var cloudup_export = document.querySelector('#cloudup_export');
-    cloudup_export.innerHTML = 'export cloudup_=' + host;
+    showCloudupByHost(host);
   }
   var weburlPrefix = window.location.protocol + "//" + window.location.host;
   document.querySelector('input').value = weburlPrefix;
