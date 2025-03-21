@@ -1,9 +1,18 @@
 <html>
+  <head><title>cloudup</title></head>
 <body>
+  input new domain: <input style="width: 20em;" id="cloudup_host" type="text" value="https://domain.com" oninput="updateCloudupExport()"/>
+  <p>
+  <p>
+  <p>
+  <p>
+<pre id="cloudup_export">
+export cloudup_=https://domain.com
+</pre>
+<p>
+<p>
+<p>
 <pre>
-export cloudup_=domain.com
-
-
 #none-cn
 curl -sSfL https://$cloudup_/podman.sh | bash
 
@@ -29,5 +38,17 @@ echo ${cloudup_}:/nfs.remote /nfs.remote nfs  defaults,ro,nofail 0 0 >> /etc/fst
 
 
 </body>
+<script>
+  //get url host and console.log it
+  function updateCloudupExport() {
+    var host = document.querySelector('#cloudup_host').value;
+    console.log(host);
+    var cloudup_export = document.querySelector('#cloudup_export');
+    cloudup_export.innerHTML = 'export cloudup_=' + host;
+  }
+  var weburlPrefix = window.location.protocol + "//" + window.location.host;
+  document.querySelector('input').value = weburlPrefix;
+  updateCloudupExport();
+</script>
 </html>
 
