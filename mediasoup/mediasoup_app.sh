@@ -12,39 +12,43 @@ echodo() { echo _run_cmd:"$@"; $@; }
 cd ${SCRIPT_DIR}
 
 _local_domain_name=$1
-[ "x$_local_domain_name" == "x" ] && _local_domain_name=$env_domain_name_meeting
-[ "x$_local_domain_name" == "x" ] && _local_domain_name=meeting.$env_domain_name
+[ "x$_local_domain_name" == "x" ] && _local_domain_name=$env_domain_name_mediasoup
+[ "x$_local_domain_name" == "x" ] && _local_domain_name=mediasoup.$env_domain_name
 [ "x$_local_domain_name" == "x" ] && {
   echo "no domain name"
   exit
 }
+CONTAINER_NAME=${_local_domain_name//./_}_app
 
-CONTAINER_NAME=${_local_domain_name//./_}
+
 DATA_DIR=/_data${SCRIPT_DIR}/${CONTAINER_NAME}
-echodo mkdir -p ${DATA_DIR}
-echodo podman stop ${CONTAINER_NAME}
-echodo podman rm ${CONTAINER_NAME}
-echodo podman rmi -f kmeeting:latest
+#echodo mkdir -p ${DATA_DIR}
 
-#[ -f ./.env ] && source ./.env
-
-#-p 8085:5000  
 
 __label_file() {
 cat <<EOF
 traefik.enable=true
-traefik.http.routers.${CONTAINER_NAME}.rule=Host(\`${_local_domain_name}\`)
-traefik.http.routers.${CONTAINER_NAME}.entrypoints=ep_webtls
-traefik.http.routers.${CONTAINER_NAME}.tls.certresolver=myresolver
-traefik.http.routers.rt_${CONTAINER_NAME}_https.service=srv_${CONTAINER_NAME}
-traefik.http.services.srv_${CONTAINER_NAME}.loadbalancer.server.port=80
+traefik.http.routers.rt_${CONTAINER_NAME}.rule=Host(\`${_local_domain_name}\`)
+traefik.http.routers.rt_${CONTAINER_NAME}.entrypoints=ep_webtls
+traefik.http.routers.rt_${CONTAINER_NAME}.tls.certresolver=myresolver
+traefik.http.routers.rt_${CONTAINER_NAME}.service=srv_${CONTAINER_NAME}
+traefik.http.services.srv_${CONTAINER_NAME}.loadbalancer.server.port=8080
 EOF
 }
 
-echodo __label_file
-echodo podman run --tls-verify=false --name ${CONTAINER_NAME} -d \
--v ${DATA_DIR}:/data \
---label-file <(__label_file) \
-docker://registry.rbat.tk/kmeeting:latest
-echodo podman logs -f ${CONTAINER_NAME}
+run_with_notls() {
 
+echodo __label_file
+echodo podman stop ${CONTAINER_NAME}
+echodo podman rm ${CONTAINER_NAME}
+echodo podman run \
+	--rm \
+	-d \
+	--label-file=<(__label_file) \
+	--name=${CONTAINER_NAME} \
+	docker://registry.rbat.tk/mediasoup-demo:latest ./start_app.sh
+echodo podman logs -f ${CONTAINER_NAME}
+}
+
+
+run_with_notls

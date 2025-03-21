@@ -1,6 +1,4 @@
 # if network_mode host not work may be need install new podman-compose by: curl -o /usr/local/bin/podman-compose https://raw.githubusercontent.com/containers/podman-compose/main/podman_compose.py
-ARG HOST_UID
-ENV HOST_UID ${HOST_UID}
 
 services:
   coturn:
@@ -9,13 +7,13 @@ services:
     command: ["-c", "/etc/coturn/turnserver.conf"]
     volumes: # chmod 777 coturn.conf
       - "./coturn.conf:/etc/coturn/turnserver.conf"
-  turnrs:
+  #turnrs:
     # https://github.com/mycrl/turn-rs?tab=readme-ov-file#docker
-    network_mode: "host"
-    image: ghcr.io/mycrl/turn-server
-    volumes:
-      - "./turn_rs.yml:/etc/turn-server/config.toml"
-    restart: always
+    #network_mode: "host"
+    #image: ghcr.io/mycrl/turn-server
+    #volumes:
+    #  - "./turn_rs.yml:/etc/turn-server/config.toml"
+    #restart: always
   kurento:
     network_mode: "host"
     image: kurento/kurento-media-server:7.0.0
@@ -28,7 +26,7 @@ services:
       - "8083:8083"
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.mqtt.rule=Host(`meeting.danfestar.cn`) && PathPrefix(`/mqtt`)"
+      - "traefik.http.routers.mqtt.rule=Host(`${KMEETING_DOMAIN_NAME}`) && PathPrefix(`/mqtt`)"
       - "traefik.http.routers.mqtt.entrypoints=ep_webtls"
       - "traefik.http.routers.mqtt.tls.certresolver=myresolver"
       - "traefik.http.services.mqtt.loadbalancer.server.port=8083"

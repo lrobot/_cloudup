@@ -30,7 +30,7 @@ __label_file() {
 cat <<EOF
 traefik.enable=true
 traefik.http.routers.rt_${CONTAINER_NAME}.rule=Host(\`${_local_domain_name}\`)
-traefik.http.routers.rt_${CONTAINER_NAME}.entrypoints=ep_webtls,ep_web
+traefik.http.routers.rt_${CONTAINER_NAME}.entrypoints=ep_webtls
 traefik.http.routers.rt_${CONTAINER_NAME}.tls.certresolver=myresolver
 EOF
 }

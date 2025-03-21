@@ -14,12 +14,20 @@ cd ${SCRIPT_DIR}
 _local_domain_name=$1
 [ "x$_local_domain_name" == "x" ] && _local_domain_name=$env_domain_name_admin
 [ "x$_local_domain_name" == "x" ] && _local_domain_name=admin.$env_domain_name
-[ "x$_local_domain_name" == "x" ] && {
-  echo "no domain name"
-  exit
-}
+
+
+if ping -c 3 $_local_domain_name > /dev/null ; then
+  echo ping ok for:$_local_domain_name
+else
+  echo ping err for:$_local_domain_name
+  _local_domain_name=''
+fi
+
 CONTAINER_NAME=traefik_admin
-_local_env_admin_password_hash=$(htpasswd -nbm admin ${env_admin_password})
+if [ "x${_local_domain_name}" != "x" ] ; then
+  which htpasswd > /dev/null || { apt update && apt install -y apache2-utils; }
+  _local_env_admin_password_hash=$(htpasswd -nbm admin ${env_admin_password})
+fi
 export env_admin_password=""
 
 mkdir -p __traefik_tmp_data
@@ -33,8 +41,6 @@ traefik.http.middlewares.mw_rs_http2https.redirectscheme.permanent=true
 traefik.http.middlewares.mw_rs_http2tls8443.redirectscheme.scheme=https
 traefik.http.middlewares.mw_rs_http2tls8443.redirectscheme.permanent=true
 traefik.http.middlewares.mw_rs_http2tls8443.redirectscheme.port=8443
-traefik.http.middlewares.mv_ba_traefikauth.basicAuth.users=${_local_env_admin_password_hash}
-traefik.http.middlewares.mv_sp_test.stripprefix.prefixes=/test_remove_traefik_prefix
 EOF
 
 if [ "x$1" != "x" ]; then
@@ -60,6 +66,8 @@ traefik.http.middlewares.mw_rr_traefik.redirectregex.regex=^https://${1}:8443/?$
 traefik.http.middlewares.mw_rr_traefik.redirectregex.replacement=https://${1}:8443/traefik
 
 #8443 need auto for access api@internal
+traefik.http.middlewares.mv_ba_traefikauth.basicAuth.users=${_local_env_admin_password_hash}
+traefik.http.middlewares.mv_sp_test.stripprefix.prefixes=/test_remove_traefik_prefix
 traefik.http.routers.rt_traefik_dashboard.rule=Host(\`${1}\`) && (PathPrefix(\`/traefik\`) || PathPrefix(\`/test_remove_traefik_prefix\`))
 traefik.http.routers.rt_traefik_dashboard.entrypoints=ep_webtls8k
 traefik.http.routers.rt_traefik_dashboard.tls.certresolver=myresolver
@@ -81,9 +89,9 @@ EOF
 fi
 
 }
-echodo echo_container_label $_local_domain_name
 echodo podman stop ${CONTAINER_NAME}
-echodo podman rm ${CONTAINER_NAME}
+echodo podman rm -f ${CONTAINER_NAME}
+echodo echo_container_label $_local_domain_name
 podman run --rm -d \
 	--name ${CONTAINER_NAME} \
 	-p 80:80 \
