@@ -50,7 +50,6 @@ podman run --rm \
   --name ${CONTAINER_NAME} \
   --volume $(pwd)/.__config.yaml:/etc/headscale/config.yaml \
   --volume ${DATA_DIR}:/var/lib/headscale \
-  --publish 0.0.0.0:8080:8080 \
   --publish 0.0.0.0:9090:9090 \
   --entrypoint "" \
   --label-file <(__label_file) \
