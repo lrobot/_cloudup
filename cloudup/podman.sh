@@ -13,15 +13,44 @@ echodo() { echo _run_cmd:"$@"; $@; }
 
 cd $SCRIPT_DIR || err_exit
 
+_is_distro() {
+  cat /proc/version | grep -iq "$1"
+}
 
-if [ "x$1" == "cn" ] ; then
-update_mirror_cn() {
+is_debian() {
+  _is_distro "Debian"
+}
+
+is_ubuntu() {
+  _is_distro "Ubuntu"
+}
+
+update_mirror_debian_cn() {
 cat <<EOF > /etc/apt/sources.list
-deb http://mirrors.tuna.tsinghua.edu.cn/debian bookworm main contrib
-deb http://mirrors.tuna.tsinghua.edu.cn/debian bookworm-updates main contrib
-deb http://mirrors.tuna.tsinghua.edu.cn/debian-security bookworm-security main contrib
+deb https://mirrors.tuna.tsinghua.edu.cn/debian/ testing main contrib non-free non-free-firmware
+deb https://mirrors.tuna.tsinghua.edu.cn/debian/ testing-updates main contrib non-free non-free-firmware
+deb https://mirrors.tuna.tsinghua.edu.cn/debian/ testing-backports main contrib non-free non-free-firmware
+deb https://mirrors.tuna.tsinghua.edu.cn/debian-security testing-security main contrib non-free non-free-firmware
 EOF
 }
+update_mirror_ubuntu_cn() {
+cat <<EOF > /etc/apt/sources.list.d/ubuntu.sources
+Types: deb
+URIs: https://mirrors.tuna.tsinghua.edu.cn/ubuntu
+Suites: noble noble-updates noble-backports
+Components: main restricted universe multiverse
+Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+Types: deb
+URIs: https://mirrors.tuna.tsinghua.edu.cn/ubuntu
+Suites: noble-security
+Components: main restricted universe multiverse
+Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+EOF
+}
+
+if [ "x$1" == "xcn" ] ; then
+is_debian && echodo update_mirror_debian_cn
+is_ubuntu && echodo update_mirror_ubuntu_cn
 fi
 
 # htpasswd need apache2-utils
@@ -41,15 +70,14 @@ systemctl disable dnsmasq
 if [ -f podman-compose.py ] ; then
   echodo cp podman-compose.py /usr/local/bin/podman-compose
 else
-if [ "x$cloudup_" != "x" ] ; then
-  echodo curl -sSfL https://$cloudup_/podman-compose.py -o /tmp/podman-compose.py && echodo cp -a /tmp/podman-compose.py /usr/local/bin/podman-compose
-else
-echo export cloudup_url=xxxxxx 
-echo cp podman-compose.py /usr/local/bin/podman-compose
-echo chmod a+x /usr/local/bin/podman-compose
+  if [ "x$cloudup_" != "x" ] ; then
+    echodo curl -sSfL http://$cloudup_/podman-compose.py -o /tmp/podman-compose.py && echodo cp -a /tmp/podman-compose.py /usr/local/bin/podman-compose
+  else
+    echo 'cloudup_ not set, you need:'
+    echo '$cloudup_=domain.com'
+    echo cp podman-compose.py /usr/local/bin/podman-compose
+  fi
 fi
-fi
-
 chmod a+x /usr/local/bin/podman-compose
 grep docker /etc/containers/registries.conf || {
  echo "add docker.io for docker search"

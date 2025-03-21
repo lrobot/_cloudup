@@ -1,7 +1,7 @@
 <html>
   <head><title>cloudup</title></head>
 <body>
-  input new domain: <input style="width: 20em;" id="cloudup_host" type="text" value="https://domain.com" oninput="updateCloudupExport()"/>
+  input new domain: <input style="width: 20em;" id="cloudup_host" type="text" value="domain.com" oninput="updateCloudupExport()"/>
   <p>
   <p>
   <p>
@@ -11,27 +11,19 @@
 
 <pre id="cloudup_hidden" style="display: none;">
 #none-cn
-export cloudup_=https://domain.com
-curl -sSfL https://$cloudup_/podman.sh | bash
+export cloudup_=domain.com; curl -sSfL http://$cloudup_/podman.sh | bash
 
 
 #cn
-export cloudup_=https://domain.com
-curl -sSfL https://$cloudup_/podman.sh | bash -s -- cn
+export cloudup_=domain.com; curl -sSfL $cloudup_/podman.sh | bash -s -- cn
 
 
 #bynfs
-export cloudup_=https://domain.com
-apt install -y nfs-common
-mkdir -p /nfs.remote
-mount -t nfs -o ro $cloudup_:/nfs.remote /nfs.remote
-/nfs.remote/_cloudup/cloudup/podman.sh
+export cloudup_=domain.com; apt install -y nfs-common; mkdir -p /nfs.remote ;mount -t nfs -o ro $cloudup_:/nfs.remote /nfs.remote; /nfs.remote/_cloudup/cloudup/podman.sh
 
 
 #fstab
-export cloudup_=https://domain.com
-mkdir -p /nfs.remote
-echo ${cloudup_}:/nfs.remote /nfs.remote nfs  defaults,ro,nofail 0 0 >> /etc/fstab
+export cloudup_=domain.com; mkdir -p /nfs.remote ; echo ${cloudup_}:/nfs.remote /nfs.remote nfs  defaults,ro,nofail 0 0 >> /etc/fstab
 </pre>
 </body>
 <script>
@@ -44,14 +36,15 @@ echo ${cloudup_}:/nfs.remote /nfs.remote nfs  defaults,ro,nofail 0 0 >> /etc/fst
   function showCloudupByHost(host) {
     var cloudup_show = document.querySelector('#cloudup_show');
     var cloudup_export = document.querySelector('#cloudup_hidden');
-    cloudup_show.innerHTML = cloudup_export.innerHTML.replaceAll('https://domain.com', host);
+    cloudup_show.innerHTML = cloudup_export.innerHTML.replaceAll('domain.com', host);
   }
   function updateCloudupExport() {
     var host = document.querySelector('#cloudup_host').value;
     showCloudupByHost(host);
   }
-  var weburlPrefix = window.location.protocol + "//" + window.location.host;
-  document.querySelector('input').value = weburlPrefix;
+  // var inputValue = window.location.protocol + "//" + window.location.host;
+  var inputValue = window.location.host;
+  document.querySelector('input').value = inputValue;
   updateCloudupExport();
 </script>
 </html>
