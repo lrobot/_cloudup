@@ -50,7 +50,7 @@ echo "================================"
 echodo __label_file
 echodo podman stop ${CONTAINER_NAME}
 echodo podman rm ${CONTAINER_NAME}
-echodo podman rmi  mediasoup-demo:latest
+echodo podman rmi  mediasoup-demo-server:latest
 echodo podman run \
 	--rm \
 	-d \
@@ -65,7 +65,7 @@ echodo podman run \
 	-e MEDIASOUP_ANNOUNCED_IP \
 	-e MEDIASOUP_MIN_PORT \
 	-e MEDIASOUP_MAX_PORT \
-	docker://registry.rbat.tk/mediasoup-demo:latest
+	docker://registry.rbat.tk/mediasoup-demo-server:latest
 echodo podman logs -f ${CONTAINER_NAME}
 }
 
