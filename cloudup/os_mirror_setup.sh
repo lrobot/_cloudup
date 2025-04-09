@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#set -x
+set -x
 mytime() {
   { time "$@" >/dev/null 2>&1; } 2>&1  | grep real | sed -e 's/real[ \t] *//g'
 }
@@ -27,11 +27,11 @@ get_fast_debian_url() {
 }
 
 has_qaptporxy() {
-  curl --connect-timeout 3 -v http://qaptproxyx.lan:3142 >/dev/null 2>&1
+  curl --connect-timeout 3 -v http://qaptproxy.lan:3142 >/dev/null 2>&1
 }
 
 config_qaptporxy() {
-cat <<EOF |/etc/apt/apt.conf.d/00proxy
+cat <<EOF | tee /etc/apt/apt.conf.d/00proxy
 Acquire::http { Proxy "http://qaptproxy.lan:3142"; };
 EOF
 }
