@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -x
 mytime() {
-  { time "$@" >/dev/null 2>&1; } 2>&1  | grep real | sed -e 's/real[ \t] *//g'
+  { time "$@" >/dev/null 2>&1 || echo "real 0m0.999s" ; } 2>&1  | grep real | tail -1 | sed -e 's/real[ \t] *//g'
 }
 
 time_curl() {
@@ -10,6 +10,9 @@ time_curl() {
 
 test_set_mirror() {
   local usetime=$(time_curl $1)
+  if [[ "$?" != "0" ]] ; then
+    return
+  fi
   if [[ "$usetime" < $fastest_time ]]; then
     fastest_time=$usetime
     fastest_url=$1
@@ -18,11 +21,11 @@ test_set_mirror() {
 
 get_fast_debian_url() {
 	local fastest_time="0m0.999s"
-	local fastest_url="http://mirrors.tuna.tsinghua.edu.cn/debian/"
+	local fastest_url="http://mirrors.tuna.tsinghua.edu.cn/"
 
-	test_set_mirror http://deb.debian.org/debian
-	test_set_mirror http://mirrors.aliyun.com/debian/
-	test_set_mirror http://mirrors.tencentyun.com/debian/
+	test_set_mirror http://deb.debian.org/
+	test_set_mirror http://mirrors.aliyun.com/
+	test_set_mirror http://mirrors.tencentyun.com/
 	echo $fastest_url
 }
 
@@ -32,8 +35,21 @@ has_qaptporxy() {
 
 config_qaptporxy() {
 cat <<EOF | tee /etc/apt/apt.conf.d/00proxy
-Acquire::http { Proxy "http://qaptproxy.lan:3142"; };
+//Debug::Acquire::http "true";
+//Acquire::http { Proxy "http://qaptproxy.lan:3142"; };
+Acquire::http::ProxyAutoDetect "/usr/local/bin/apt-proxy-checker";
 EOF
+mkdir -p /usr/local/bin
+cat <<EOF | tee /usr/local/bin/apt-proxy-checker
+#!/usr/bin/env bash
+if curl --connect-timeout 3 -v http://qaptproxy.lan:3142 >/dev/null 2>&1 ; then
+  echo -n http://qaptproxy.lan:3142
+else
+	echo -n DIRECT
+fi
+EOF
+chmod a+x /usr/local/bin/apt-proxy-checker
+
 }
 
 is_debian() {
