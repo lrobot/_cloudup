@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -x
+#set -x
 mytime() {
   { time "$@" >/dev/null 2>&1 || echo "real 0m0.999s" ; } 2>&1  | grep real | tail -1 | sed -e 's/real[ \t] *//g'
 }
