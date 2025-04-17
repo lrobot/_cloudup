@@ -25,9 +25,9 @@ ping -c 1 qdisk.lan > /dev/null 2>&1 && {
   fstab_add qdisk.lan nfs.local
 }
 
-# [ "x${cloudup_}" == "x" ] &&  cloudup_=$(wget -q --no-check-certificate -O- http://gitee.com/lrobot/dev_info/raw/master/cloudup_url.txt)
-# ping -c 1 ${cloudup_} > /dev/null 2>&1 && {
-#   fstab_add ${cloudup_} nfs.remote
-# }
+[ "x${cloudup_}" == "x" ] &&  cloudup_=$(wget -q --no-check-certificate -O- http://gitee.com/lrobot/dev_info/raw/master/cloudup_url.txt)
+ping -c 1 ${cloudup_} > /dev/null 2>&1 && {
+  fstab_add ${cloudup_} nfs.remote
+}
 
 cat /etc/fstab
