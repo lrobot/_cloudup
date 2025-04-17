@@ -12,7 +12,12 @@ fstab_add() {
     echo "${mount_path} already in /etc/fstab"
     return 0
   }
-  echo ${mount_host}:/${mount_path} /${mount_path} nfs4  defaults,ro,nofail 0 0 >> /etc/fstab
+  if which mount.nfs4 >/dev/null 2>&1 ; then
+    mount_fstype=nfs4
+  else
+    mount_fstype=nfs
+  fi
+  echo ${mount_host}:/${mount_path} /${mount_path} ${mount_fstype}  defaults,ro,nofail 0 0 >> /etc/fstab
 }
 
 
@@ -20,7 +25,9 @@ ping -c 1 qdisk.lan > /dev/null 2>&1 && {
   fstab_add qdisk.lan nfs.local
 }
 
-# cloudup_=$(wget -q --no-check-certificate -O- http://gitee.com/lrobot/dev_info/raw/master/cloudup_url.txt)
+# [ "x${cloudup_}" == "x" ] &&  cloudup_=$(wget -q --no-check-certificate -O- http://gitee.com/lrobot/dev_info/raw/master/cloudup_url.txt)
 # ping -c 1 ${cloudup_} > /dev/null 2>&1 && {
 #   fstab_add ${cloudup_} nfs.remote
 # }
+
+cat /etc/fstab

@@ -46,7 +46,7 @@
 </head>
 
 <body class="p-8">
-  input new domain: <input style="width: 20em;" id="cloudup_host" type="text" value="domain.com" oninput="updateHostNameWithInput()"/>
+  input new domain: <input style="width: 20em;" id="edit_host" type="text" value="domain.com" oninput="updateHostNameWithInput()"/>
     <div id="markdown-content"></div>
     <script>
       // apt install -y nfs-common; mkdir -p /nfs.remote ;mount -t nfs -o ro domain.com:/nfs.remote /nfs.remote; /nfs.remote/_cloudup/cloudup/podman.sh
@@ -55,6 +55,14 @@
 ## wget vs curl
  * wget -O- 
  * curl -sSfL
+
+
+ ## setup-alpine
+\`\`\`shell
+export cloudup_=domain.com; 
+clouduprun() { wget -O- http://domain.com/\${1} | sh; }
+\`\`\`
+
 
 ## setup-alpine
 \`\`\`shell
@@ -69,6 +77,11 @@ wget -O- http://domain.com/os_mirror_setup.sh | sh
 ## podman
 \`\`\`shell
 wget -O- http://domain.com/podman.sh | sh
+\`\`\`
+
+## k8s
+\`\`\`shell
+wget -O- http://domain.com/k8s.sh | sh
 \`\`\`
 
 ## nfs
@@ -112,7 +125,7 @@ wget -O- http://domain.com/nfs.sh | sh
     last_domain = newHost;
   }
   function updateHostNameWithInput() {
-    var host = document.querySelector('#cloudup_host').value;
+    var host = document.querySelector('#edit_host').value;
     if (host == "") {
       host = "domain.com";
     }
@@ -120,10 +133,9 @@ wget -O- http://domain.com/nfs.sh | sh
   }
   var last_domain = "domain.com";
   var inputValue = window.location.host;
-  document.querySelector('#cloudup_host').value = inputValue;
+  document.querySelector('#edit_host').value = inputValue;
   updateHostNameWithInput();
     </script>
 </body>
 
 </html>
-    

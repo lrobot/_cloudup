@@ -59,7 +59,8 @@ fi
 fi
 
 install_new_podman_compose() {
-local cloudup_=$(wget -q --no-check-certificate -O- http://gitee.com/lrobot/dev_info/raw/master/cloudup_url.txt)
+
+[ "x${cloudup_}" == "x" ] &&  cloudup_=$(wget -q --no-check-certificate -O- http://gitee.com/lrobot/dev_info/raw/master/cloudup_url.txt)
 wget -q --no-check-certificate -O /usr/local/bin/podman-compose http://${cloudup_}/podman-compose.py
 chmod +x /usr/local/bin/podman-compose
 }
