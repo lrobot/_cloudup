@@ -49,38 +49,27 @@
   input new domain: <input style="width: 20em;" id="cloudup_host" type="text" value="domain.com" oninput="updateHostNameWithInput()"/>
     <div id="markdown-content"></div>
     <script>
+      // apt install -y nfs-common; mkdir -p /nfs.remote ;mount -t nfs -o ro domain.com:/nfs.remote /nfs.remote; /nfs.remote/_cloudup/cloudup/podman.sh
+      // setup-interfaces -ar; wget https://domain.com/setup-alpine.cfg; setup-alpine -e -f setup-alpine.cfg
         var markdown = `
-
-
 ## setup-alpine
 \`\`\`shell
 setup-alpine -e -f https://domain.com/setup-alpine.cfg
 \`\`\`
-\`\`\`shell
-setup-interfaces -ar; wget https://domain.com/setup-alpine.cfg; setup-alpine -e -f setup-alpine.cfg
-\`\`\`
 
 ## mirror
 \`\`\`shell
-curl -sSfL http://domain.com/os_mirror_setup.sh | bash
+curl -sSfL http://domain.com/os_mirror_setup.sh | sh
 \`\`\`
 
 ## podman
 \`\`\`shell
 wget -O- http://domain.com/podman.sh | sh
 \`\`\`
-\`\`\`shell
-curl -sSfL http://domain.com/podman.sh | bash
-\`\`\`
 
 ## nfs
 \`\`\`shell
-apt install -y nfs-common; mkdir -p /nfs.remote ;mount -t nfs -o ro domain.com:/nfs.remote /nfs.remote; /nfs.remote/_cloudup/cloudup/podman.sh
-\`\`\`
-
-## fstab
-\`\`\`shell
-mkdir -p /nfs.remote ; echo domain.com:/nfs.remote /nfs.remote nfs  defaults,ro,nofail 0 0 >> /etc/fstab
+wget -O- http://domain.com/nfs.sh | sh
 \`\`\`
 `;
   function renderMarkDown() {
