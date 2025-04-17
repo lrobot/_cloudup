@@ -52,6 +52,10 @@
       // apt install -y nfs-common; mkdir -p /nfs.remote ;mount -t nfs -o ro domain.com:/nfs.remote /nfs.remote; /nfs.remote/_cloudup/cloudup/podman.sh
       // setup-interfaces -ar; wget https://domain.com/setup-alpine.cfg; setup-alpine -e -f setup-alpine.cfg
         var markdown = `
+## wget vs curl
+ * wget -O- 
+ * curl -sSfL
+
 ## setup-alpine
 \`\`\`shell
 setup-alpine -e -f https://domain.com/setup-alpine.cfg
@@ -59,7 +63,7 @@ setup-alpine -e -f https://domain.com/setup-alpine.cfg
 
 ## mirror
 \`\`\`shell
-curl -sSfL http://domain.com/os_mirror_setup.sh | sh
+wget -O- http://domain.com/os_mirror_setup.sh | sh
 \`\`\`
 
 ## podman
