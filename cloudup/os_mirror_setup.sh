@@ -124,6 +124,7 @@ rm -f /etc/apt/sources.list.d/debian_cn.list
 source /etc/os-release
 #VERSION_CODENAME, ID, from /etc/os-release
 _boot_debian_changemirror_${ID}_${VERSION_CODENAME} $debian_url
+touch /etc/apt/cfg.done
 }
 
 
