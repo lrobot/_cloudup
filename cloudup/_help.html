@@ -67,6 +67,7 @@ clouduprun() { wget -O- http://domain.com/\${1} | sh; }
 ## setup-alpine
 \`\`\`shell
 setup-alpine -e -f https://domain.com/setup-alpine.cfg
+#please set passwd for root&normal user, no passwd will not allow remote login(will deny login both by passwd&key auth)
 \`\`\`
 
 ## mirror
