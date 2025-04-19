@@ -1,4 +1,14 @@
 
+when_login_echo() {
+hostname
+echo $(hostname) ==============================
+
+}
+
+when_login_echo
+
+export cloudup_=cloudup.danfestar.cn; 
+clouduprun() { wget -O- http://cloudup.danfestar.cn/${1} | sh; }
 
 
 #systemdu_tunnelprepare sshtunnel_usename <hostname>

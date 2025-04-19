@@ -25,9 +25,20 @@ ping -c 1 qdisk.lan > /dev/null 2>&1 && {
   fstab_add qdisk.lan nfs.local
 }
 
-[ "x${cloudup_}" == "x" ] &&  cloudup_=$(wget -q --no-check-certificate -O- http://gitee.com/lrobot/dev_info/raw/master/cloudup_url.txt)
+[ "x${cloudup_}" = "x" ] &&  cloudup_=$(wget -q --no-check-certificate -O- http://gitee.com/lrobot/dev_info/raw/master/cloudup_url.txt)
 ping -c 1 ${cloudup_} > /dev/null 2>&1 && {
   fstab_add ${cloudup_} nfs.remote
+  which systemctl &> /dev/null && systemctl daemon-reload
+  [ -f /nfs.remote/shell.inc ] || {
+	   mount /nfs.remote
+  }
+
+mkdir -p /etc/profile.d
+echo '[ -f /nfs.remote/shell.inc ] && source /nfs.remote/shell.inc' > /etc/profile.d/load_remote_shell.sh
+echo 'load remote shell add ok'
+
 }
 
 cat /etc/fstab
+
+
