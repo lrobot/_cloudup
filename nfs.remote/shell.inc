@@ -1,6 +1,5 @@
 
 when_login_echo() {
-hostname
 echo $(hostname) ==============================
 
 }
