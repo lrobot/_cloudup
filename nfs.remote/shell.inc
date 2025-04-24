@@ -1,13 +1,87 @@
+if [ "x${SHELL}" == "x" ]; then
+  alias reload='exec sh -l'
+else
+  alias reload="exec ${SHELL} -l"
+fi
+
 
 when_login_echo() {
 echo $(hostname) ==============================
+ip addr | grep 'inet ' 
 
 }
-
 when_login_echo
-
+export PATH=$(echo /root/istio-*/bin):$PATH
 export cloudup_=cloudup.danfestar.cn; 
 clouduprun() { wget -O- http://cloudup.danfestar.cn/${1} | sh; }
+
+
+[ -e /run/containerd/containerd.sock ] && export CONTAINER_RUNTIME_ENDPOINT=unix:///run/containerd/containerd.sock
+[ -f /etc/kubernetes/admin.conf ] && export KUBECONFIG=/etc/kubernetes/admin.conf
+
+
+proxyenableby(){ 
+    echo 'proxyenableby socks5h://127.0.0.1:7890 #help'
+    echo 'proxydisable #help'
+    echo 'qenv_proxyXXXX #help'
+  [ "x${1}" == "x" ] && {
+    echo "usage: proxyenableby socks5h://127.0.0.1:7890"
+  } || {
+    local proxyIp=$(echo ${1}|sed 's%://% %;s%:% %' | awk '{print $2}')
+    local proxyPort=$(echo ${1}|sed 's%://% %;s%:% %' | awk '{print $3}')
+    local PRY_="_PROXY=${1}";
+    local pry_="_proxy=${1}";
+    prefixechodo export http${pry_};
+    prefixechodo export https${pry_};
+    prefixechodo export ftp${pry_};
+    prefixechodo export rsync${pry_};
+    prefixechodo export all${pry_};
+
+    prefixechodo export HTTP${PRY_};
+    prefixechodo export HTTPS${PRY_};
+    prefixechodo export FTP${PRY_};
+    prefixechodo export RSYNC${PRY_};
+    prefixechodo export ALL${PRY_};
+    prefixechodo export JAVA_SOCKS_OPTS="-DsocksProxyHost=${proxyIp} -DsocksProxyPort=${proxyPort}"
+    prefixechodo export SBT_OPTS="$SBT_OPTS_ORIGIN ${JAVA_SOCKS_OPTS}"
+    #[https://gist.github.com/bynil/2126e374db8495fe33de2cbc543149ae](Use git over socks5 proxy)
+    prefixechodo export GIT_SSH_COMMAND='ssh -o ProxyCommand="nc -X 5 -x '${proxyIp}:${proxyPort}' %h %p"'
+  }
+}
+proxyenablebysocks5(){ echo "proxyenablebysocks5 127.0.0.1:7890 #help" ;  proxyenableby socks5://$1; }
+proxyenablebysocks5h(){ echo "proxyenablebysocks5h 127.0.0.1:7890 #help" ;  proxyenableby socks5h://$1; }
+proxyenablebyhttp(){ echo "proxyenablebyhttp 127.0.0.1:7890 #help" ;  proxyenableby http://$1; }
+proxyenablebyhttps(){ echo "proxyenablebyhttps 127.0.0.1:7890 #help" ;  proxyenableby https://$1; }
+
+proxydisable(){ 
+  prefixechodo unset http_proxy
+  prefixechodo unset https_proxy
+  prefixechodo unset ftp_proxy
+  prefixechodo unset rsync_proxy
+  prefixechodo unset all_proxy
+  prefixechodo unset HTTP_PROXY
+  prefixechodo unset HTTPS_PROXY
+  prefixechodo unset FTP_PROXY
+  prefixechodo unset RSYNC_PROXY
+  prefixechodo unset ALL_PROXY
+  prefixechodo unset GIT_SSH_COMMAND
+  prefixechodo export SBT_OPTS="$SBT_OPTS_ORIGIN"
+}
+
+proxystandby() {
+  _PROXY_STANDBY=$1
+}
+
+proxyondo() {(
+  proxyenableby ${_PROXY_STANDBY}
+  "$@"
+)}
+
+proxyoffdo() {(
+  proxydisable
+  "$@"
+)}
+
 
 
 #systemdu_tunnelprepare sshtunnel_usename <hostname>
@@ -144,3 +218,30 @@ tailscale_up_home() {
 	_tailscale_up "$@"
 }
 
+
+k8s_kubeconfig_by_kubeadmin() {
+  mkdir -p $HOME/.kube
+  sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+  sudo chown $(id -u):$(id -g) $HOME/.kube/config
+}
+
+k8s_clearup() {
+
+/etc/init.d/kubelet stop
+crictl pods -q | xargs -n1 crictl stopp
+crictl pods -q | xargs -n1 crictl rmp
+rm -rf /etc/kubernetes
+rm -rf /var/lib/etcd
+kubeadm reset
+
+}
+
+k8s_init_nodemaster() {
+
+[ -f ~/k8s_init_cfg.yml ] || kubeadm config print init-defaults > ~/k8s_init_cfg.yml
+echo find 1.2.3.4 to replace
+vi ~/k8s_init_cfg.yml
+kubeadm --v=5 init --config ~/k8s_init_cfg.yml
+#kubeadm --v=5 init --config ~/k8s_init_cfg.yml --pod-network-cidr=10.244.0.0/16 --node-name=$(hostname)
+
+}

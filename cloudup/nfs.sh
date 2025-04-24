@@ -23,6 +23,7 @@ fstab_add() {
     mount_fstype=nfs
   fi
   echo ${mount_host}:/${mount_path} /${mount_path} ${mount_fstype}  defaults,ro,nofail 0 0 >> /etc/fstab
+  mount /${mount_path}
 }
 
 
@@ -34,9 +35,6 @@ ping -c 1 qdisk.lan >/dev/null 2>&1 && {
 ping -c 1 ${cloudup_} >/dev/null 2>&1 && {
   fstab_add ${cloudup_} nfs.remote
   which systemctl >/dev/null 2>&1 && systemctl daemon-reload
-  [ -f /nfs.remote/shell.inc ] || {
-	   mount /nfs.remote
-  }
 
 mkdir -p /etc/profile.d
 echo '{ ping -c 1 $(cat /etc/fstab|grep nfs.remote|cut -d : -f1) >/dev/null 2>&1; } && [ -f /nfs.remote/shell.inc ] && source /nfs.remote/shell.inc' > /etc/profile.d/load_remote_shell.sh
