@@ -7,9 +7,10 @@
 # https://docs.docker.com/compose/django/
 # https://docs.docker.com/compose/wordpress/
 # TODO: podman pod logs --color -n -f pod_testlogs
-from __future__ import annotations
+from __future__ import annotations  # If you see an error here, use Python 3.7 or greater
 
 import argparse
+import asyncio.exceptions
 import asyncio.subprocess
 import getpass
 import glob
@@ -24,7 +25,9 @@ import shlex
 import signal
 import subprocess
 import sys
+import tempfile
 from asyncio import Task
+from enum import Enum
 
 try:
     from shlex import quote as cmd_quote
@@ -37,7 +40,7 @@ except ImportError:
 import yaml
 from dotenv import dotenv_values
 
-__version__ = "1.2.0"
+__version__ = "1.3.0"
 
 script = os.path.realpath(sys.argv[0])
 
@@ -204,9 +207,9 @@ def fix_mount_dict(compose, mount_dict, srv_name):
         return mount_dict
     if mount_dict["type"] == "volume":
         vols = compose.vols
-        source = mount_dict.get("source", None)
-        vol = (vols.get(source, None) or {}) if source else {}
-        name = vol.get("name", None)
+        source = mount_dict.get("source")
+        vol = (vols.get(source, {}) or {}) if source else {}
+        name = vol.get("name")
         mount_dict["_vol"] = vol
         # handle anonymous or implied volume
         if not source:
@@ -217,7 +220,7 @@ def fix_mount_dict(compose, mount_dict, srv_name):
                 hashlib.sha256(mount_dict["target"].encode("utf-8")).hexdigest(),
             ])
         elif not name:
-            external = vol.get("external", None)
+            external = vol.get("external")
             if isinstance(external, dict):
                 vol["name"] = external.get("name", f"{source}")
             elif external:
@@ -268,7 +271,6 @@ def rec_subs(value, subs_dict):
             svc_envs = {k: v for k, v in value['environment'].items() if k not in subs_dict}
             # we need to add `svc_envs` to the `subs_dict` so that it can evaluate the
             # service environment that reference to another service environment.
-            subs_dict.update(svc_envs)
             svc_envs = rec_subs(svc_envs, subs_dict)
             subs_dict.update(svc_envs)
 
@@ -336,8 +338,8 @@ def norm_ulimit(inner_value):
     if isinstance(inner_value, dict):
         if not inner_value.keys() & {"soft", "hard"}:
             raise ValueError("expected at least one soft or hard limit")
-        soft = inner_value.get("soft", inner_value.get("hard", None))
-        hard = inner_value.get("hard", inner_value.get("soft", None))
+        soft = inner_value.get("soft", inner_value.get("hard"))
+        hard = inner_value.get("hard", inner_value.get("soft"))
         return f"{soft}:{hard}"
     if is_list(inner_value):
         return norm_ulimit(norm_as_dict(inner_value))
@@ -383,7 +385,7 @@ async def assert_volume(compose, mount_dict):
     inspect volume to get directory
     create volume if needed
     """
-    vol = mount_dict.get("_vol", None)
+    vol = mount_dict.get("_vol")
     if mount_dict["type"] == "bind":
         basedir = os.path.realpath(compose.dirname)
         mount_src = mount_dict["source"]
@@ -394,10 +396,10 @@ async def assert_volume(compose, mount_dict):
             except OSError:
                 pass
         return
-    if mount_dict["type"] != "volume" or not vol or not vol.get("name", None):
+    if mount_dict["type"] != "volume" or not vol or not vol.get("name"):
         return
     vol_name = vol["name"]
-    is_ext = vol.get("external", None)
+    is_ext = vol.get("external")
     log.debug("podman volume inspect %s || podman volume create %s", vol_name, vol_name)
     # TODO: might move to using "volume list"
     # podman volume list --format '{{.Name}}\t{{.MountPoint}}' \
@@ -407,7 +409,7 @@ async def assert_volume(compose, mount_dict):
     except subprocess.CalledProcessError as e:
         if is_ext:
             raise RuntimeError(f"External volume [{vol_name}] does not exists") from e
-        labels = vol.get("labels", None) or []
+        labels = vol.get("labels", [])
         args = [
             "create",
             "--label",
@@ -417,10 +419,10 @@ async def assert_volume(compose, mount_dict):
         ]
         for item in norm_as_list(labels):
             args.extend(["--label", item])
-        driver = vol.get("driver", None)
+        driver = vol.get("driver")
         if driver:
             args.extend(["--driver", driver])
-        driver_opts = vol.get("driver_opts", None) or {}
+        driver_opts = vol.get("driver_opts", {})
         for opt, value in driver_opts.items():
             args.extend(["--opt", f"{opt}={value}"])
         args.append(vol_name)
@@ -429,29 +431,29 @@ async def assert_volume(compose, mount_dict):
 
 
 def mount_desc_to_mount_args(compose, mount_desc, srv_name, cnt_name):  # pylint: disable=unused-argument
-    mount_type = mount_desc.get("type", None)
-    vol = mount_desc.get("_vol", None) if mount_type == "volume" else None
-    source = vol["name"] if vol else mount_desc.get("source", None)
+    mount_type = mount_desc.get("type")
+    vol = mount_desc.get("_vol") if mount_type == "volume" else None
+    source = vol["name"] if vol else mount_desc.get("source")
     target = mount_desc["target"]
     opts = []
     if mount_desc.get(mount_type, None):
         # TODO: we might need to add mount_dict[mount_type]["propagation"] = "z"
-        mount_prop = mount_desc.get(mount_type, {}).get("propagation", None)
+        mount_prop = mount_desc.get(mount_type, {}).get("propagation")
         if mount_prop:
             opts.append(f"{mount_type}-propagation={mount_prop}")
     if mount_desc.get("read_only", False):
         opts.append("ro")
     if mount_type == "tmpfs":
         tmpfs_opts = mount_desc.get("tmpfs", {})
-        tmpfs_size = tmpfs_opts.get("size", None)
+        tmpfs_size = tmpfs_opts.get("size")
         if tmpfs_size:
             opts.append(f"tmpfs-size={tmpfs_size}")
-        tmpfs_mode = tmpfs_opts.get("mode", None)
+        tmpfs_mode = tmpfs_opts.get("mode")
         if tmpfs_mode:
             opts.append(f"tmpfs-mode={tmpfs_mode}")
     if mount_type == "bind":
         bind_opts = mount_desc.get("bind", {})
-        selinux = bind_opts.get("selinux", None)
+        selinux = bind_opts.get("selinux")
         if selinux is not None:
             opts.append(selinux)
     opts = ",".join(opts)
@@ -485,7 +487,7 @@ def container_to_ulimit_args(cnt, podman_args):
 
 
 def container_to_ulimit_build_args(cnt, podman_args):
-    build = cnt.get("build", None)
+    build = cnt.get("build")
 
     if build is not None:
         ulimit_to_ulimit_args(build.get("ulimits", []), podman_args)
@@ -495,8 +497,8 @@ def mount_desc_to_volume_args(compose, mount_desc, srv_name, cnt_name):  # pylin
     mount_type = mount_desc["type"]
     if mount_type not in ("bind", "volume"):
         raise ValueError("unknown mount type:" + mount_type)
-    vol = mount_desc.get("_vol", None) if mount_type == "volume" else None
-    source = vol["name"] if vol else mount_desc.get("source", None)
+    vol = mount_desc.get("_vol") if mount_type == "volume" else None
+    source = vol["name"] if vol else mount_desc.get("source")
     if not source:
         raise ValueError(f"missing mount source for {mount_type} on {srv_name}")
     target = mount_desc["target"]
@@ -516,12 +518,12 @@ def mount_desc_to_volume_args(compose, mount_desc, srv_name, cnt_name):  # pylin
     # [nosuid|suid]
     # [O]
     # [U]
-    read_only = mount_desc.get("read_only", None)
+    read_only = mount_desc.get("read_only")
     if read_only is not None:
         opts.append("ro" if read_only else "rw")
     if mount_type == "bind":
         bind_opts = mount_desc.get("bind", {})
-        selinux = bind_opts.get("selinux", None)
+        selinux = bind_opts.get("selinux")
         if selinux is not None:
             opts.append(selinux)
 
@@ -550,10 +552,10 @@ async def get_mount_args(compose, cnt, volume):
             args = volume["target"]
             tmpfs_opts = volume.get("tmpfs", {})
             opts = []
-            size = tmpfs_opts.get("size", None)
+            size = tmpfs_opts.get("size")
             if size:
                 opts.append(f"size={size}")
-            mode = tmpfs_opts.get("mode", None)
+            mode = tmpfs_opts.get("mode")
             if mode:
                 opts.append(f"mode={mode}")
             if opts:
@@ -570,12 +572,12 @@ def get_secret_args(compose, cnt, secret, podman_is_building=False):
     podman_is_building: True if we are preparing arguments for an invocation of "podman build"
                         False if we are preparing for something else like "podman run"
     """
-    secret_name = secret if isinstance(secret, str) else secret.get("source", None)
+    secret_name = secret if isinstance(secret, str) else secret.get("source")
     if not secret_name or secret_name not in compose.declared_secrets.keys():
         raise ValueError(f'ERROR: undeclared secret: "{secret}", service: {cnt["_service"]}')
     declared_secret = compose.declared_secrets[secret_name]
 
-    source_file = declared_secret.get("file", None)
+    source_file = declared_secret.get("file")
     dest_file = ""
     secret_opts = ""
 
@@ -585,11 +587,11 @@ def get_secret_args(compose, cnt, secret, podman_is_building=False):
     secret_mode = None
     secret_type = None
     if isinstance(secret, dict):
-        secret_target = secret.get("target", None)
-        secret_uid = secret.get("uid", None)
-        secret_gid = secret.get("gid", None)
-        secret_mode = secret.get("mode", None)
-        secret_type = secret.get("type", None)
+        secret_target = secret.get("target")
+        secret_uid = secret.get("uid")
+        secret_gid = secret.get("gid")
+        secret_mode = secret.get("mode")
+        secret_type = secret.get("type")
 
     if source_file:
         # assemble path for source file first, because we need it for all cases
@@ -635,7 +637,7 @@ def get_secret_args(compose, cnt, secret, podman_is_building=False):
     # since these commands are directly translated to
     # podman-create commands, albeit we can only support a 1:1 mapping
     # at the moment
-    if declared_secret.get("external", False) or declared_secret.get("name", None):
+    if declared_secret.get("external", False) or declared_secret.get("name"):
         secret_opts += f",uid={secret_uid}" if secret_uid else ""
         secret_opts += f",gid={secret_gid}" if secret_gid else ""
         secret_opts += f",mode={secret_mode}" if secret_mode else ""
@@ -646,7 +648,7 @@ def get_secret_args(compose, cnt, secret, podman_is_building=False):
         # for type=mount as well.
         # having a custom name for the external secret
         # has the same problem as well
-        ext_name = declared_secret.get("name", None)
+        ext_name = declared_secret.get("name")
         err_str = (
             'ERROR: Custom name/target reference "{}" '
             'for mounted external secret "{}" is not supported'
@@ -679,17 +681,17 @@ def container_to_gpu_res_args(cnt, podman_args):
     # https://docs.docker.com/compose/gpu-support/
     # https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/cdi-support.html
 
-    deploy = cnt.get("deploy", None) or {}
-    res = deploy.get("resources", None) or {}
-    reservations = res.get("reservations", None) or {}
+    deploy = cnt.get("deploy", {})
+    res = deploy.get("resources", {})
+    reservations = res.get("reservations", {})
     devices = reservations.get("devices", [])
     gpu_on = False
     for device in devices:
-        driver = device.get("driver", None)
+        driver = device.get("driver")
         if driver is None:
             continue
 
-        capabilities = device.get("capabilities", None)
+        capabilities = device.get("capabilities")
         if capabilities is None:
             continue
 
@@ -729,21 +731,21 @@ def container_to_gpu_res_args(cnt, podman_args):
 def container_to_cpu_res_args(cnt, podman_args):
     # v2: https://docs.docker.com/compose/compose-file/compose-file-v2/#cpu-and-other-resources
     # cpus, cpu_shares, mem_limit, mem_reservation
-    cpus_limit_v2 = try_float(cnt.get("cpus", None), None)
-    cpu_shares_v2 = try_int(cnt.get("cpu_shares", None), None)
-    mem_limit_v2 = cnt.get("mem_limit", None)
-    mem_res_v2 = cnt.get("mem_reservation", None)
+    cpus_limit_v2 = try_float(cnt.get("cpus"), None)
+    cpu_shares_v2 = try_int(cnt.get("cpu_shares"), None)
+    mem_limit_v2 = cnt.get("mem_limit")
+    mem_res_v2 = cnt.get("mem_reservation")
     # v3: https://docs.docker.com/compose/compose-file/compose-file-v3/#resources
     # spec: https://github.com/compose-spec/compose-spec/blob/master/deploy.md#resources
     # deploy.resources.{limits,reservations}.{cpus, memory}
-    deploy = cnt.get("deploy", None) or {}
-    res = deploy.get("resources", None) or {}
-    limits = res.get("limits", None) or {}
-    cpus_limit_v3 = try_float(limits.get("cpus", None), None)
-    mem_limit_v3 = limits.get("memory", None)
-    reservations = res.get("reservations", None) or {}
+    deploy = cnt.get("deploy", {})
+    res = deploy.get("resources", {})
+    limits = res.get("limits", {})
+    cpus_limit_v3 = try_float(limits.get("cpus"), None)
+    mem_limit_v3 = limits.get("memory")
+    reservations = res.get("reservations", {})
     # cpus_res_v3 = try_float(reservations.get('cpus', None), None)
-    mem_res_v3 = reservations.get("memory", None)
+    mem_res_v3 = reservations.get("memory")
     # add args
     cpus = cpus_limit_v3 or cpus_limit_v2
     if cpus:
@@ -772,10 +774,10 @@ def container_to_cpu_res_args(cnt, podman_args):
 
 def port_dict_to_str(port_desc):
     # NOTE: `mode: host|ingress` is ignored
-    cnt_port = port_desc.get("target", None)
-    published = port_desc.get("published", None) or ""
-    host_ip = port_desc.get("host_ip", None)
-    protocol = port_desc.get("protocol", None) or "tcp"
+    cnt_port = port_desc.get("target")
+    published = port_desc.get("published", "")
+    host_ip = port_desc.get("host_ip")
+    protocol = port_desc.get("protocol", "tcp")
     if not cnt_port:
         raise ValueError("target container port must be specified")
     if host_ip:
@@ -813,31 +815,38 @@ def get_network_create_args(net_desc, proj_name, net_name):
         f"com.docker.compose.project={proj_name}",
     ]
     # TODO: add more options here, like dns, ipv6, etc.
-    labels = net_desc.get("labels", None) or []
+    labels = net_desc.get("labels", [])
     for item in norm_as_list(labels):
         args.extend(["--label", item])
-    if net_desc.get("internal", None):
+    if net_desc.get("internal"):
         args.append("--internal")
-    driver = net_desc.get("driver", None)
+    driver = net_desc.get("driver")
     if driver:
         args.extend(("--driver", driver))
-    driver_opts = net_desc.get("driver_opts", None) or {}
+    driver_opts = net_desc.get("driver_opts", {})
     for key, value in driver_opts.items():
         args.extend(("--opt", f"{key}={value}"))
-    ipam = net_desc.get("ipam", None) or {}
-    ipam_driver = ipam.get("driver", None)
+    ipam = net_desc.get("ipam", {})
+    ipam_driver = ipam.get("driver")
     if ipam_driver and ipam_driver != "default":
         args.extend(("--ipam-driver", ipam_driver))
-    ipam_config_ls = ipam.get("config", None) or []
-    if net_desc.get("enable_ipv6", None):
+    ipam_config_ls = ipam.get("config", [])
+    if net_desc.get("enable_ipv6"):
         args.append("--ipv6")
+    if net_desc.get("x-podman.disable_dns"):
+        args.append("--disable-dns")
+    if net_desc.get("x-podman.dns"):
+        args.extend((
+            "--dns",
+            ",".join(norm_as_list(net_desc.get("x-podman.dns"))),
+        ))
 
     if isinstance(ipam_config_ls, dict):
         ipam_config_ls = [ipam_config_ls]
     for ipam_config in ipam_config_ls:
-        subnet = ipam_config.get("subnet", None)
-        ip_range = ipam_config.get("ip_range", None)
-        gateway = ipam_config.get("gateway", None)
+        subnet = ipam_config.get("subnet")
+        ip_range = ipam_config.get("ip_range")
+        gateway = ipam_config.get("gateway")
         if subnet:
             args.extend(("--subnet", subnet))
         if ip_range:
@@ -853,19 +862,20 @@ async def assert_cnt_nets(compose, cnt):
     """
     create missing networks
     """
-    net = cnt.get("network_mode", None)
-    if net and not net.startswith("bridge"):
+    net = cnt.get("network_mode")
+    if net:
         return
-    cnt_nets = cnt.get("networks", None)
+
+    cnt_nets = cnt.get("networks")
     if cnt_nets and isinstance(cnt_nets, dict):
         cnt_nets = list(cnt_nets.keys())
     cnt_nets = norm_as_list(cnt_nets or compose.default_net)
     for net in cnt_nets:
         net_desc = compose.networks[net] or {}
-        is_ext = net_desc.get("external", None)
+        is_ext = net_desc.get("external")
         ext_desc = is_ext if isinstance(is_ext, dict) else {}
         default_net_name = default_network_name_for_project(compose, net, is_ext)
-        net_name = ext_desc.get("name", None) or net_desc.get("name", None) or default_net_name
+        net_name = ext_desc.get("name") or net_desc.get("name") or default_net_name
         try:
             await compose.podman.output([], "network", ["exists", net_name])
         except subprocess.CalledProcessError as e:
@@ -876,169 +886,154 @@ async def assert_cnt_nets(compose, cnt):
             await compose.podman.output([], "network", ["exists", net_name])
 
 
-def get_net_args(compose, cnt):
-    service_name = cnt["service_name"]
+def get_net_args_from_network_mode(compose, cnt):
     net_args = []
-    is_bridge = False
-    mac_address = cnt.get("mac_address", None)
-    net = cnt.get("network_mode", None)
-    if net:
-        if net == "none":
-            is_bridge = False
-            net_args.append("--network=none")
-        elif net == "host":
-            net_args.append(f"--network={net}")
-        elif net.startswith("slirp4netns"):  # Note: podman-specific network mode
-            net_args.append(f"--network={net}")
-        elif net == "private":  # Note: podman-specific network mode
-            net_args.append("--network=private")
-        elif net.startswith("pasta"):  # Note: podman-specific network mode
-            net_args.append(f"--network={net}")
-        elif net.startswith("ns:"):  # Note: podman-specific network mode
-            net_args.append(f"--network={net}")
-        elif net.startswith("service:"):
-            other_srv = net.split(":", 1)[1].strip()
-            other_cnt = compose.container_names_by_service[other_srv][0]
-            net_args.append(f"--network=container:{other_cnt}")
-        elif net.startswith("container:"):
-            other_cnt = net.split(":", 1)[1].strip()
-            net_args.append(f"--network=container:{other_cnt}")
-        elif net.startswith("bridge"):
-            is_bridge = True
-        else:
-            log.fatal("unknown network_mode [%s]", net)
-            sys.exit(1)
-    else:
-        is_bridge = True
-    cnt_nets = cnt.get("networks", None)
+    net = cnt.get("network_mode")
+    service_name = cnt["service_name"]
 
-    aliases = [service_name]
-    # NOTE: from podman manpage:
-    # NOTE: A container will only have access to aliases on the first network
-    #       that it joins. This is a limitation that will be removed in a later
-    #       release.
-    ip = None
-    ip6 = None
-    ip_assignments = 0
-    if cnt.get("_aliases", None):
-        aliases.extend(cnt.get("_aliases", None))
-    if cnt_nets and isinstance(cnt_nets, dict):
-        prioritized_cnt_nets = []
-        # cnt_nets is {net_key: net_value, ...}
-        for net_key, net_value in cnt_nets.items():
-            net_value = net_value or {}
-            aliases.extend(norm_as_list(net_value.get("aliases", None)))
-            if net_value.get("ipv4_address", None) is not None:
-                ip_assignments = ip_assignments + 1
-            if net_value.get("ipv6_address", None) is not None:
-                ip_assignments = ip_assignments + 1
+    if "networks" in cnt:
+        raise ValueError(
+            f"networks and network_mode must not be present in the same service [{service_name}]"
+        )
 
-            if not ip:
-                ip = net_value.get("ipv4_address", None)
-            if not ip6:
-                ip6 = net_value.get("ipv6_address", None)
-            net_priority = net_value.get("priority", 0)
-            prioritized_cnt_nets.append((
-                net_priority,
-                net_key,
-            ))
-        # sort dict by priority
-        prioritized_cnt_nets.sort(reverse=True)
-        cnt_nets = [net_key for _, net_key in prioritized_cnt_nets]
-    cnt_nets = norm_as_list(cnt_nets or compose.default_net)
-    net_names = []
-    for net in cnt_nets:
-        net_desc = compose.networks[net] or {}
-        is_ext = net_desc.get("external", None)
-        ext_desc = is_ext if isinstance(is_ext, str) else {}
-        default_net_name = default_network_name_for_project(compose, net, is_ext)
-        net_name = ext_desc.get("name", None) or net_desc.get("name", None) or default_net_name
-        net_names.append(net_name)
-    net_names_str = ",".join(net_names)
-
-    # TODO: add support for per-interface aliases
-    #  See https://docs.docker.com/compose/compose-file/compose-file-v3/#aliases
-    #  Even though podman accepts network-specific aliases (e.g., --network=bridge:alias=foo,
-    #  podman currently ignores this if a per-container network-alias is set; as pdoman-compose
-    #  always sets a network-alias to the container name, is currently doesn't make sense to
-    #  implement this.
-    multiple_nets = cnt.get("networks", None)
-    if multiple_nets and len(multiple_nets) > 1:
-        # networks can be specified as a dict with config per network or as a plain list without
-        # config.  Support both cases by converting the plain list to a dict with empty config.
-        if is_list(multiple_nets):
-            multiple_nets = {net: {} for net in multiple_nets}
-        else:
-            multiple_nets = {net: net_config or {} for net, net_config in multiple_nets.items()}
-
-        # if a mac_address was specified on the container level, we need to check that it is not
-        # specified on the network level as well
-        if mac_address is not None:
-            for net_config_ in multiple_nets.values():
-                network_mac = net_config_.get("x-podman.mac_address", None)
-                if network_mac is not None:
-                    raise RuntimeError(
-                        f"conflicting mac addresses {mac_address} and {network_mac}:"
-                        "specifying mac_address on both container and network level "
-                        "is not supported"
-                    )
-
-        for net_, net_config_ in multiple_nets.items():
-            net_desc = compose.networks[net_] or {}
-            is_ext = net_desc.get("external", None)
-            ext_desc = is_ext if isinstance(is_ext, str) else {}
-            default_net_name = default_network_name_for_project(compose, net_, is_ext)
-            net_name = ext_desc.get("name", None) or net_desc.get("name", None) or default_net_name
-
-            ipv4 = net_config_.get("ipv4_address", None)
-            ipv6 = net_config_.get("ipv6_address", None)
-            # custom extension; not supported by docker-compose v3
-            mac = net_config_.get("x-podman.mac_address", None)
-
-            # if a mac_address was specified on the container level, apply it to the first network
-            # This works for Python > 3.6, because dict insert ordering is preserved, so we are
-            # sure that the first network we encounter here is also the first one specified by
-            # the user
-            if mac is None and mac_address is not None:
-                mac = mac_address
-                mac_address = None
-
-            net_options = []
-            if ipv4:
-                net_options.append(f"ip={ipv4}")
-            if ipv6:
-                net_options.append(f"ip={ipv6}")
-            if mac:
-                net_options.append(f"mac={mac}")
-
-            if net_options:
-                net_args.append(f"--network={net_name}:" + ",".join(net_options))
-            else:
-                net_args.append(f"--network={net_name}")
-    else:
-        if is_bridge:
-            if net_names_str:
-                net_args.append(f"--network={net_names_str}")
-            else:
-                net_args.append("--network=bridge")
-        if ip:
-            net_args.append(f"--ip={ip}")
-        if ip6:
-            net_args.append(f"--ip6={ip6}")
+    if net == "none":
+        net_args.append("--network=none")
+    elif net == "host":
+        net_args.append(f"--network={net}")
+    elif net.startswith("slirp4netns"):  # Note: podman-specific network mode
+        net_args.append(f"--network={net}")
+    elif net == "private":  # Note: podman-specific network mode
+        net_args.append("--network=private")
+    elif net.startswith("pasta"):  # Note: podman-specific network mode
+        net_args.append(f"--network={net}")
+    elif net.startswith("ns:"):  # Note: podman-specific network mode
+        net_args.append(f"--network={net}")
+    elif net.startswith("service:"):
+        other_srv = net.split(":", 1)[1].strip()
+        other_cnt = compose.container_names_by_service[other_srv][0]
+        net_args.append(f"--network=container:{other_cnt}")
+    elif net.startswith("container:"):
+        other_cnt = net.split(":", 1)[1].strip()
+        net_args.append(f"--network=container:{other_cnt}")
+    elif net.startswith("bridge"):
+        aliases_on_container = [service_name]
+        if cnt.get("_aliases"):
+            aliases_on_container.extend(cnt.get("_aliases"))
+        net_options = [f"alias={alias}" for alias in aliases_on_container]
+        mac_address = cnt.get("mac_address")
         if mac_address:
-            net_args.append(f"--mac-address={mac_address}")
+            net_options.append(f"mac={mac_address}")
 
-    if is_bridge:
-        for alias in aliases:
-            net_args.extend([f"--network-alias={alias}"])
+        net = f"{net}," if ":" in net else f"{net}:"
+        net_args.append(f"--network={net}{','.join(net_options)}")
+    else:
+        log.fatal("unknown network_mode [%s]", net)
+        sys.exit(1)
 
     return net_args
 
 
-async def container_to_args(compose, cnt, detached=True):
+def get_net_args(compose, cnt):
+    net = cnt.get("network_mode")
+    if net:
+        return get_net_args_from_network_mode(compose, cnt)
+
+    return get_net_args_from_networks(compose, cnt)
+
+
+def get_net_args_from_networks(compose, cnt):
+    net_args = []
+    mac_address = cnt.get("mac_address")
+    service_name = cnt["service_name"]
+
+    aliases_on_container = [service_name]
+    aliases_on_container.extend(cnt.get("_aliases", []))
+
+    multiple_nets = cnt.get("networks", {})
+    if not multiple_nets:
+        if not compose.default_net:
+            # The bridge mode in podman is using the `podman` network.
+            # It seems weird, but we should keep this behavior to avoid
+            # breaking changes.
+            net_options = [f"alias={alias}" for alias in aliases_on_container]
+            if mac_address:
+                net_options.append(f"mac={mac_address}")
+            net_args.append(f"--network=bridge:{','.join(net_options)}")
+            return net_args
+
+        multiple_nets = {compose.default_net: {}}
+
+    # networks can be specified as a dict with config per network or as a plain list without
+    # config.  Support both cases by converting the plain list to a dict with empty config.
+    if is_list(multiple_nets):
+        multiple_nets = {net: {} for net in multiple_nets}
+    else:
+        multiple_nets = {net: net_config or {} for net, net_config in multiple_nets.items()}
+
+    # if a mac_address was specified on the container level, we need to check that it is not
+    # specified on the network level as well
+    if mac_address is not None:
+        for net_config in multiple_nets.values():
+            network_mac = net_config.get("mac_address", net_config.get("x-podman.mac_address"))
+            if network_mac is not None:
+                raise RuntimeError(
+                    f"conflicting mac addresses {mac_address} and {network_mac}:"
+                    "specifying mac_address on both container and network level "
+                    "is not supported"
+                )
+
+    for net_, net_config_ in multiple_nets.items():
+        net_desc = compose.networks.get(net_) or {}
+        is_ext = net_desc.get("external")
+        ext_desc = is_ext if isinstance(is_ext, str) else {}
+        default_net_name = default_network_name_for_project(compose, net_, is_ext)
+        net_name = ext_desc.get("name") or net_desc.get("name") or default_net_name
+
+        interface_name = net_config_.get("x-podman.interface_name")
+        ipv4 = net_config_.get("ipv4_address")
+        ipv6 = net_config_.get("ipv6_address")
+        # Note: mac_address is supported by compose spec now, and x-podman.mac_address
+        # is only for backward compatibility
+        # https://github.com/compose-spec/compose-spec/blob/main/05-services.md#mac_address
+        mac = net_config_.get("mac_address", net_config_.get("x-podman.mac_address"))
+        aliases_on_net = norm_as_list(net_config_.get("aliases", []))
+
+        # if a mac_address was specified on the container level, apply it to the first network
+        # This works for Python > 3.6, because dict insert ordering is preserved, so we are
+        # sure that the first network we encounter here is also the first one specified by
+        # the user
+        if mac is None and mac_address is not None:
+            mac = mac_address
+            mac_address = None
+
+        net_options = []
+        if interface_name:
+            net_options.append(f"interface_name={interface_name}")
+        if ipv4:
+            net_options.append(f"ip={ipv4}")
+        if ipv6:
+            net_options.append(f"ip6={ipv6}")
+        if mac:
+            net_options.append(f"mac={mac}")
+
+        # Container level service aliases
+        net_options.extend([f"alias={alias}" for alias in aliases_on_container])
+        # network level service aliases
+        if aliases_on_net:
+            net_options.extend([f"alias={alias}" for alias in aliases_on_net])
+
+        if net_options:
+            net_args.append(f"--network={net_name}:" + ",".join(net_options))
+        else:
+            net_args.append(f"--network={net_name}")
+
+    return net_args
+
+
+async def container_to_args(compose, cnt, detached=True, no_deps=False):
     # TODO: double check -e , --add-host, -v, --read-only
     dirname = compose.dirname
-    pod = cnt.get("pod", None) or ""
+    pod = cnt.get("pod", "")
     name = cnt["name"]
     podman_args = [f"--name={name}"]
 
@@ -1048,20 +1043,20 @@ async def container_to_args(compose, cnt, detached=True):
     if pod:
         podman_args.append(f"--pod={pod}")
     deps = []
-    for dep_srv in cnt.get("_deps", None) or []:
-        deps.extend(compose.container_names_by_service.get(dep_srv, None) or [])
-    if deps:
+    for dep_srv in cnt.get("_deps", []):
+        deps.extend(compose.container_names_by_service.get(dep_srv.name, []))
+    if deps and not no_deps:
         deps_csv = ",".join(deps)
         podman_args.append(f"--requires={deps_csv}")
-    sec = norm_as_list(cnt.get("security_opt", None))
+    sec = norm_as_list(cnt.get("security_opt"))
     for sec_item in sec:
         podman_args.extend(["--security-opt", sec_item])
-    ann = norm_as_list(cnt.get("annotations", None))
+    ann = norm_as_list(cnt.get("annotations"))
     for a in ann:
         podman_args.extend(["--annotation", a])
-    if cnt.get("read_only", None):
+    if cnt.get("read_only"):
         podman_args.append("--read-only")
-    if cnt.get("http_proxy", None) is False:
+    if cnt.get("http_proxy") is False:
         podman_args.append("--http-proxy=false")
     for i in cnt.get("labels", []):
         podman_args.extend(["--label", i])
@@ -1073,11 +1068,13 @@ async def container_to_args(compose, cnt, detached=True):
         podman_args.extend(["--group-add", item])
     for item in cnt.get("devices", []):
         podman_args.extend(["--device", item])
-    for item in norm_as_list(cnt.get("dns", None)):
+    for item in cnt.get("device_cgroup_rules", []):
+        podman_args.extend(["--device-cgroup-rule", item])
+    for item in norm_as_list(cnt.get("dns")):
         podman_args.extend(["--dns", item])
-    for item in norm_as_list(cnt.get("dns_opt", None)):
+    for item in norm_as_list(cnt.get("dns_opt")):
         podman_args.extend(["--dns-opt", item])
-    for item in norm_as_list(cnt.get("dns_search", None)):
+    for item in norm_as_list(cnt.get("dns_search")):
         podman_args.extend(["--dns-search", item])
     env_file = cnt.get("env_file", [])
     if isinstance(env_file, (dict, str)):
@@ -1111,10 +1108,10 @@ async def container_to_args(compose, cnt, detached=True):
     await assert_cnt_nets(compose, cnt)
     podman_args.extend(get_net_args(compose, cnt))
 
-    log_config = cnt.get("logging", None)
+    log_config = cnt.get("logging")
     if log_config is not None:
         podman_args.append(f'--log-driver={log_config.get("driver", "k8s-file")}')
-        log_opts = log_config.get("options") or {}
+        log_opts = log_config.get("options", {})
         podman_args += [f"--log-opt={name}={value}" for name, value in log_opts.items()]
     for secret in cnt.get("secrets", []):
         podman_args.extend(get_secret_args(compose, cnt, secret))
@@ -1122,9 +1119,9 @@ async def container_to_args(compose, cnt, detached=True):
         podman_args.extend(["--add-host", i])
     for i in cnt.get("expose", []):
         podman_args.extend(["--expose", i])
-    if cnt.get("publishall", None):
+    if cnt.get("publishall"):
         podman_args.append("-P")
-    ports = cnt.get("ports", None) or []
+    ports = cnt.get("ports", [])
     if isinstance(ports, str):
         ports = [ports]
     for port in ports:
@@ -1134,22 +1131,22 @@ async def container_to_args(compose, cnt, detached=True):
             raise TypeError("port should be either string or dict")
         podman_args.extend(["-p", port])
 
-    userns_mode = cnt.get("userns_mode", None)
+    userns_mode = cnt.get("userns_mode")
     if userns_mode is not None:
         podman_args.extend(["--userns", userns_mode])
 
-    user = cnt.get("user", None)
+    user = cnt.get("user")
     if user is not None:
         podman_args.extend(["-u", user])
-    if cnt.get("working_dir", None) is not None:
+    if cnt.get("working_dir") is not None:
         podman_args.extend(["-w", cnt["working_dir"]])
-    if cnt.get("hostname", None):
+    if cnt.get("hostname"):
         podman_args.extend(["--hostname", cnt["hostname"]])
-    if cnt.get("shm_size", None):
+    if cnt.get("shm_size"):
         podman_args.extend(["--shm-size", str(cnt["shm_size"])])
-    if cnt.get("stdin_open", None):
+    if cnt.get("stdin_open"):
         podman_args.append("-i")
-    if cnt.get("stop_signal", None):
+    if cnt.get("stop_signal"):
         podman_args.extend(["--stop-signal", cnt["stop_signal"]])
 
     sysctls = cnt.get("sysctls")
@@ -1163,41 +1160,41 @@ async def container_to_args(compose, cnt, detached=True):
         else:
             raise TypeError("sysctls should be either dict or list")
 
-    if cnt.get("tty", None):
+    if cnt.get("tty"):
         podman_args.append("--tty")
-    if cnt.get("privileged", None):
+    if cnt.get("privileged"):
         podman_args.append("--privileged")
-    if cnt.get("pid", None):
+    if cnt.get("pid"):
         podman_args.extend(["--pid", cnt["pid"]])
-    pull_policy = cnt.get("pull_policy", None)
+    pull_policy = cnt.get("pull_policy")
     if pull_policy is not None and pull_policy != "build":
         podman_args.extend(["--pull", pull_policy])
-    if cnt.get("restart", None) is not None:
+    if cnt.get("restart") is not None:
         podman_args.extend(["--restart", cnt["restart"]])
     container_to_ulimit_args(cnt, podman_args)
     container_to_res_args(cnt, podman_args)
     # currently podman shipped by fedora does not package this
-    if cnt.get("init", None):
+    if cnt.get("init"):
         podman_args.append("--init")
-    if cnt.get("init-path", None):
+    if cnt.get("init-path"):
         podman_args.extend(["--init-path", cnt["init-path"]])
-    entrypoint = cnt.get("entrypoint", None)
+    entrypoint = cnt.get("entrypoint")
     if entrypoint is not None:
         if isinstance(entrypoint, str):
             entrypoint = shlex.split(entrypoint)
         podman_args.extend(["--entrypoint", json.dumps(entrypoint)])
-    platform = cnt.get("platform", None)
+    platform = cnt.get("platform")
     if platform is not None:
         podman_args.extend(["--platform", platform])
-    if cnt.get("runtime", None):
+    if cnt.get("runtime"):
         podman_args.extend(["--runtime", cnt["runtime"]])
 
     # WIP: healthchecks are still work in progress
-    healthcheck = cnt.get("healthcheck", None) or {}
+    healthcheck = cnt.get("healthcheck", {})
     if not isinstance(healthcheck, dict):
         raise ValueError("'healthcheck' must be a key-value mapping")
     healthcheck_disable = healthcheck.get("disable", False)
-    healthcheck_test = healthcheck.get("test", None)
+    healthcheck_test = healthcheck.get("test")
     if healthcheck_disable:
         healthcheck_test = ["NONE"]
     if healthcheck_test:
@@ -1256,7 +1253,7 @@ async def container_to_args(compose, cnt, detached=True):
         podman_args.extend(["--gidmap", gidmap])
     if cnt.get("x-podman.no_hosts", False):
         podman_args.extend(["--no-hosts"])
-    rootfs = cnt.get('x-podman.rootfs', None)
+    rootfs = cnt.get('x-podman.rootfs')
     if rootfs is not None:
         rootfs_mode = True
         podman_args.extend(["--rootfs", rootfs])
@@ -1264,13 +1261,70 @@ async def container_to_args(compose, cnt, detached=True):
 
     if not rootfs_mode:
         podman_args.append(cnt["image"])  # command, ..etc.
-    command = cnt.get("command", None)
+    command = cnt.get("command")
     if command is not None:
         if isinstance(command, str):
             podman_args.extend(shlex.split(command))
         else:
             podman_args.extend([str(i) for i in command])
     return podman_args
+
+
+class ServiceDependencyCondition(Enum):
+    CONFIGURED = "configured"
+    CREATED = "created"
+    EXITED = "exited"
+    HEALTHY = "healthy"
+    INITIALIZED = "initialized"
+    PAUSED = "paused"
+    REMOVING = "removing"
+    RUNNING = "running"
+    STOPPED = "stopped"
+    STOPPING = "stopping"
+    UNHEALTHY = "unhealthy"
+
+    @classmethod
+    def from_value(cls, value):
+        # Check if the value exists in the enum
+        for member in cls:
+            if member.value == value:
+                return member
+
+        # Check if this is a value coming from  reference
+        docker_to_podman_cond = {
+            "service_healthy": ServiceDependencyCondition.HEALTHY,
+            "service_started": ServiceDependencyCondition.RUNNING,
+            "service_completed_successfully": ServiceDependencyCondition.STOPPED,
+        }
+        try:
+            return docker_to_podman_cond[value]
+        except KeyError:
+            # pylint: disable-next=raise-missing-from
+            raise ValueError(f"Value '{value}' is not a valid condition for a service dependency")
+
+
+class ServiceDependency:
+    def __init__(self, name, condition):
+        self._name = name
+        self._condition = ServiceDependencyCondition.from_value(condition)
+
+    @property
+    def name(self):
+        return self._name
+
+    @property
+    def condition(self):
+        return self._condition
+
+    def __hash__(self):
+        # Compute hash based on the frozenset of items to ensure order does not matter
+        return hash(('name', self._name) + ('condition', self._condition))
+
+    def __eq__(self, other):
+        # Compare equality based on dictionary content
+        if isinstance(other, ServiceDependency):
+            return self._name == other.name and self._condition == other.condition
+        return False
 
 
 def rec_deps(services, service_name, start_point=None):
@@ -1282,15 +1336,15 @@ def rec_deps(services, service_name, start_point=None):
     deps = services[service_name]["_deps"]
     for dep_name in deps.copy():
         # avoid A depens on A
-        if dep_name == service_name:
+        if dep_name.name == service_name:
             continue
-        dep_srv = services.get(dep_name, None)
+        dep_srv = services.get(dep_name.name)
         if not dep_srv:
             continue
         # NOTE: avoid creating loops, A->B->A
-        if start_point and start_point in dep_srv["_deps"]:
+        if any(start_point == x.name for x in dep_srv["_deps"]):
             continue
-        new_deps = rec_deps(services, dep_name, start_point)
+        new_deps = rec_deps(services, dep_name.name, start_point)
         deps.update(new_deps)
     return deps
 
@@ -1300,31 +1354,35 @@ def flat_deps(services, with_extends=False):
     create dependencies "_deps" or update it recursively for all services
     """
     for name, srv in services.items():
+        # parse dependencies for each service
         deps = set()
         srv["_deps"] = deps
+        # TODO: manage properly the dependencies coming from base services when extended
         if with_extends:
-            ext = srv.get("extends", {}).get("service", None)
+            ext = srv.get("extends", {}).get("service")
             if ext:
                 if ext != name:
-                    deps.add(ext)
+                    deps.add(ServiceDependency(ext, "service_started"))
                 continue
-        deps_ls = srv.get("depends_on", None) or []
-        if isinstance(deps_ls, str):
-            deps_ls = [deps_ls]
-        elif isinstance(deps_ls, dict):
-            deps_ls = list(deps_ls.keys())
+
+        # the compose file has been normalized. depends_on, if exists, can only be a dictionary
+        # the normalization adds a "service_started" condition by default
+        deps_ls = srv.get("depends_on", {})
+        deps_ls = [ServiceDependency(k, v["condition"]) for k, v in deps_ls.items()]
         deps.update(deps_ls)
         # parse link to get service name and remove alias
-        links_ls = srv.get("links", None) or []
+        links_ls = srv.get("links", [])
         if not is_list(links_ls):
             links_ls = [links_ls]
-        deps.update([(c.split(":")[0] if ":" in c else c) for c in links_ls])
+        deps.update([ServiceDependency(c.split(":")[0], "service_started") for c in links_ls])
         for c in links_ls:
             if ":" in c:
                 dep_name, dep_alias = c.split(":")
                 if "_aliases" not in services[dep_name]:
                     services[dep_name]["_aliases"] = set()
                 services[dep_name]["_aliases"].add(dep_alias)
+
+    # expand the dependencies on each service
     for name, srv in services.items():
         rec_deps(services, name)
 
@@ -1380,6 +1438,45 @@ class Podman:
 
             raise subprocess.CalledProcessError(p.returncode, " ".join(cmd_ls), stderr_data)
 
+    async def _readchunk(self, reader):
+        try:
+            return await reader.readuntil(b"\n")
+        except asyncio.exceptions.IncompleteReadError as e:
+            return e.partial
+        except asyncio.exceptions.LimitOverrunError as e:
+            return await reader.read(e.consumed)
+
+    async def _format_stream(self, reader, sink, log_formatter):
+        line_ongoing = False
+
+        def _formatted_print_with_nl(s):
+            if line_ongoing:
+                print(s, file=sink, end="\n")
+            else:
+                print(log_formatter, s, file=sink, end="\n")
+
+        def _formatted_print_without_nl(s):
+            if line_ongoing:
+                print(s, file=sink, end="")
+            else:
+                print(log_formatter, s, file=sink, end="")
+
+        while not reader.at_eof():
+            chunk = await self._readchunk(reader)
+            parts = chunk.split(b"\n")
+
+            for i, part in enumerate(parts):
+                # Iff part is last and non-empty, we leave an ongoing line to be completed later
+                if i < len(parts) - 1:
+                    _formatted_print_with_nl(part.decode())
+                    line_ongoing = False
+                elif len(part) > 0:
+                    _formatted_print_without_nl(part.decode())
+                    line_ongoing = True
+        if line_ongoing:
+            # Make sure the last line ends with EOL
+            print(file=sink, end="\n")
+
     def exec(
         self,
         podman_args,
@@ -1411,31 +1508,29 @@ class Podman:
                 return None
 
             if log_formatter is not None:
-
-                async def format_out(stdout):
-                    while True:
-                        line = await stdout.readline()
-                        if line:
-                            print(log_formatter, line.decode('utf-8'), end='')
-                        if stdout.at_eof():
-                            break
-
                 p = await asyncio.create_subprocess_exec(
-                    *cmd_ls, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+                    *cmd_ls,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                    close_fds=False,
                 )  # pylint: disable=consider-using-with
 
                 # This is hacky to make the tasks not get garbage collected
                 # https://github.com/python/cpython/issues/91887
-                out_t = asyncio.create_task(format_out(p.stdout))
+                out_t = asyncio.create_task(
+                    self._format_stream(p.stdout, sys.stdout, log_formatter)
+                )
                 task_reference.add(out_t)
                 out_t.add_done_callback(task_reference.discard)
 
-                err_t = asyncio.create_task(format_out(p.stderr))
+                err_t = asyncio.create_task(
+                    self._format_stream(p.stderr, sys.stdout, log_formatter)
+                )
                 task_reference.add(err_t)
                 err_t.add_done_callback(task_reference.discard)
 
             else:
-                p = await asyncio.create_subprocess_exec(*cmd_ls)  # pylint: disable=consider-using-with
+                p = await asyncio.create_subprocess_exec(*cmd_ls, close_fds=False)  # pylint: disable=consider-using-with
 
             try:
                 exit_code = await p.wait()
@@ -1496,7 +1591,7 @@ def normalize_service(service, sub_dir=""):
             service["build"] = {"context": build}
     if sub_dir and "build" in service:
         build = service["build"]
-        context = build.get("context", None) or ""
+        context = build.get("context", "")
         if context or sub_dir:
             if context.startswith("./"):
                 context = context[2:]
@@ -1536,14 +1631,18 @@ def normalize_service(service, sub_dir=""):
             extends = {"service": extends}
             service["extends"] = extends
     if "depends_on" in service:
+        # deps should become a dictionary of dependencies
         deps = service["depends_on"]
         if isinstance(deps, str):
-            deps = [deps]
-        if is_list(deps):
-            deps_dict = {}
-            for d in deps:
-                deps_dict[d] = {'condition': 'service_started'}
-            service["depends_on"] = deps_dict
+            deps = {deps: {}}
+        elif is_list(deps):
+            deps = {x: {} for x in deps}
+
+        # the dependency service_started is set by default
+        # unless requested otherwise.
+        for k, v in deps.items():
+            v.setdefault('condition', 'service_started')
+        service["depends_on"] = deps
     return service
 
 
@@ -1551,7 +1650,7 @@ def normalize(compose):
     """
     convert compose dict of some keys from string or dicts into arrays
     """
-    services = compose.get("services", None) or {}
+    services = compose.get("services", {})
     for service in services.values():
         normalize_service(service)
     return compose
@@ -1569,7 +1668,7 @@ def normalize_service_final(service: dict, project_dir: str) -> dict:
 
 
 def normalize_final(compose: dict, project_dir: str) -> dict:
-    services = compose.get("services", None) or {}
+    services = compose.get("services", {})
     for service in services.values():
         normalize_service_final(service, project_dir)
     return compose
@@ -1636,10 +1735,10 @@ def resolve_extends(services, service_names, environ):
         ext = service.get("extends", {})
         if isinstance(ext, str):
             ext = {"service": ext}
-        from_service_name = ext.get("service", None)
+        from_service_name = ext.get("service")
         if not from_service_name:
             continue
-        filename = ext.get("file", None)
+        filename = ext.get("file")
         if filename:
             if filename.startswith("./"):
                 filename = filename[2:]
@@ -1733,7 +1832,7 @@ class PodmanCompose:
         for args in self.global_args.podman_args:
             xargs.extend(shlex.split(args))
         cmd_norm = cmd if cmd != "create" else "run"
-        cmd_args = self.global_args.__dict__.get(f"podman_{cmd_norm}_args", None) or []
+        cmd_args = self.global_args.__dict__.get(f"podman_{cmd_norm}_args", [])
         for args in cmd_args:
             xargs.extend(shlex.split(args))
         return xargs
@@ -1782,15 +1881,24 @@ class PodmanCompose:
         # otherwise use `in_pod` value provided by command line
         return self.global_args.in_pod_bool
 
+    def resolve_pod_args(self):
+        # Priorities:
+        # - Command line --pod-args
+        # - docker-compose.yml x-podman.pod_args
+        # - Default value
+        if self.global_args.pod_args is not None:
+            return shlex.split(self.global_args.pod_args)
+        return self.x_podman.get("pod_args", ["--infra=false", "--share="])
+
     def _parse_compose_file(self):
         args = self.global_args
         # cmd = args.command
-        dirname = os.environ.get("COMPOSE_PROJECT_DIR", None)
+        dirname = os.environ.get("COMPOSE_PROJECT_DIR")
         if dirname and os.path.isdir(dirname):
             os.chdir(dirname)
-        pathsep = os.environ.get("COMPOSE_PATH_SEPARATOR", None) or os.pathsep
+        pathsep = os.environ.get("COMPOSE_PATH_SEPARATOR", os.pathsep)
         if not args.file:
-            default_str = os.environ.get("COMPOSE_FILE", None)
+            default_str = os.environ.get("COMPOSE_FILE")
             if default_str:
                 default_ls = default_str.split(pathsep)
             else:
@@ -1832,9 +1940,6 @@ class PodmanCompose:
             dotenv_path = os.path.realpath(args.env_file)
             dotenv_dict.update(dotenv_to_dict(dotenv_path))
 
-        # TODO: remove next line
-        os.chdir(dirname)
-
         os.environ.update({
             key: value for key, value in dotenv_dict.items() if key.startswith("PODMAN_")
         })
@@ -1875,12 +1980,38 @@ class PodmanCompose:
                 sys.exit(1)
             content = normalize(content)
             # log(filename, json.dumps(content, indent = 2))
+
+            # See also https://docs.docker.com/compose/how-tos/project-name/#set-a-project-name
+            # **project_name** is initialized to the argument of the `-p` command line flag.
+            if not project_name:
+                project_name = self.environ.get("COMPOSE_PROJECT_NAME")
+                if not project_name:
+                    project_name = content.get("name")
+                if not project_name:
+                    project_name = dir_basename.lower()
+                # More strict then actually needed for simplicity:
+                # podman requires [a-zA-Z0-9][a-zA-Z0-9_.-]*
+                project_name_normalized = norm_re.sub("", project_name)
+                if not project_name_normalized:
+                    raise RuntimeError(f"Project name [{project_name}] normalized to empty")
+                project_name = project_name_normalized
+
+            self.project_name = project_name
+            self.environ.update({"COMPOSE_PROJECT_NAME": self.project_name})
+
             content = rec_subs(content, self.environ)
+            if isinstance(services := content.get('services'), dict):
+                for service in services.values():
+                    if 'extends' in service and (service_file := service['extends'].get('file')):
+                        service['extends']['file'] = os.path.join(
+                            os.path.dirname(filename), service_file
+                        )
+
             rec_merge(compose, content)
             # If `include` is used, append included files to files
-            include = compose.get("include", None)
+            include = compose.get("include")
             if include:
-                files.extend(include)
+                files.extend([os.path.join(os.path.dirname(filename), i) for i in include])
                 # As compose obj is updated and tested with every loop, not deleting `include`
                 # from it, results in it being tested again and again, original values for
                 # `include` be appended to `files`, and, included files be processed for ever.
@@ -1898,24 +2029,9 @@ class PodmanCompose:
         # debug mode
         if len(files) > 1:
             log.debug(" ** merged:\n%s", json.dumps(compose, indent=2))
-        # ver = compose.get('version', None)
+        # ver = compose.get('version')
 
-        if not project_name:
-            project_name = compose.get("name", None)
-            if project_name is None:
-                # More strict then actually needed for simplicity:
-                # podman requires [a-zA-Z0-9][a-zA-Z0-9_.-]*
-                project_name = (
-                    self.environ.get("COMPOSE_PROJECT_NAME", None) or dir_basename.lower()
-                )
-                project_name = norm_re.sub("", project_name)
-                if not project_name:
-                    raise RuntimeError(f"Project name [{dir_basename}] normalized to empty")
-
-        self.project_name = project_name
-        self.environ.update({"COMPOSE_PROJECT_NAME": self.project_name})
-
-        services = compose.get("services", None)
+        services = compose.get("services")
         if services is None:
             services = {}
             log.warning("WARNING: No services defined")
@@ -1930,19 +2046,29 @@ class PodmanCompose:
         flat_deps(services)
         service_names = sorted([(len(srv["_deps"]), name) for name, srv in services.items()])
         service_names = [name for _, name in service_names]
-        nets = compose.get("networks", None) or {}
+        nets = compose.get("networks", {})
         if not nets:
             nets["default"] = None
+
         self.networks = nets
-        if len(self.networks) == 1:
-            self.default_net = list(nets.keys())[0]
-        elif "default" in nets:
-            self.default_net = "default"
+        if compose.get("x-podman", {}).get("default_net_behavior_compat", False):
+            # If there is no network_mode and networks in service,
+            # docker-compose will create default network named '<project_name>_default'
+            # and add the service to the default network.
+            # So we always set `default_net = 'default'` for compatibility
+            if "default" not in self.networks:
+                self.networks["default"] = None
         else:
-            self.default_net = None
+            if len(self.networks) == 1:
+                self.default_net = list(nets.keys())[0]
+            elif "default" in nets:
+                self.default_net = "default"
+            else:
+                self.default_net = None
+
         allnets = set()
         for name, srv in services.items():
-            srv_nets = srv.get("networks", None) or self.default_net
+            srv_nets = srv.get("networks", self.default_net)
             srv_nets = (
                 list(srv_nets.keys()) if isinstance(srv_nets, dict) else norm_as_list(srv_nets)
             )
@@ -1992,12 +2118,12 @@ class PodmanCompose:
                     "service_name": service_name,
                     **service_desc,
                 }
-                x_podman = service_desc.get("x-podman", None)
-                rootfs_mode = x_podman is not None and x_podman.get("rootfs", None) is not None
+                x_podman = service_desc.get("x-podman")
+                rootfs_mode = x_podman is not None and x_podman.get("rootfs") is not None
                 if "image" not in cnt and not rootfs_mode:
                     cnt["image"] = f"{project_name}_{service_name}"
-                labels = norm_as_list(cnt.get("labels", None))
-                cnt["ports"] = norm_ports(cnt.get("ports", None))
+                labels = norm_as_list(cnt.get("labels"))
+                cnt["ports"] = norm_ports(cnt.get("ports"))
                 labels.extend(podman_compose_labels)
                 labels.extend([
                     f"com.docker.compose.container-number={num}",
@@ -2007,11 +2133,11 @@ class PodmanCompose:
                 cnt["_service"] = service_name
                 cnt["_project"] = project_name
                 given_containers.append(cnt)
-                volumes = cnt.get("volumes", None) or []
+                volumes = cnt.get("volumes", [])
                 for volume in volumes:
                     mnt_dict = get_mnt_dict(self, cnt, volume)
                     if (
-                        mnt_dict.get("type", None) == "volume"
+                        mnt_dict.get("type") == "volume"
                         and mnt_dict["source"]
                         and mnt_dict["source"] not in self.vols
                     ):
@@ -2022,12 +2148,13 @@ class PodmanCompose:
         container_by_name = {c["name"]: c for c in given_containers}
         # log("deps:", [(c["name"], c["_deps"]) for c in given_containers])
         given_containers = list(container_by_name.values())
-        given_containers.sort(key=lambda c: len(c.get("_deps", None) or []))
+        given_containers.sort(key=lambda c: len(c.get("_deps", [])))
         # log("sorted:", [c["name"] for c in given_containers])
 
         self.x_podman = compose.get("x-podman", {})
 
         args.in_pod_bool = self.resolve_in_pod()
+        args.pod_arg_list = self.resolve_pod_args()
         pods, containers = transform(args, project_name, given_containers)
         self.pods = pods
         self.containers = containers
@@ -2106,7 +2233,7 @@ class PodmanCompose:
             help="custom arguments to be passed to `podman pod`",
             metavar="pod_args",
             type=str,
-            default="--infra=false --share=",
+            default=None,
         )
         parser.add_argument(
             "--env-file",
@@ -2371,39 +2498,46 @@ async def compose_push(compose, args):
         await compose.podman.run([], "push", [cnt["image"]])
 
 
-async def build_one(compose, args, cnt):
-    if "build" not in cnt:
-        return None
-    if getattr(args, "if_not_exists", None):
-        try:
-            img_id = await compose.podman.output(
-                [], "inspect", ["-t", "image", "-f", "{{.Id}}", cnt["image"]]
-            )
-        except subprocess.CalledProcessError:
-            img_id = None
-        if img_id:
-            return None
+def container_to_build_args(compose, cnt, args, path_exists, cleanup_callbacks=None):
     build_desc = cnt["build"]
     if not hasattr(build_desc, "items"):
         build_desc = {"context": build_desc}
     ctx = build_desc.get("context", ".")
-    dockerfile = build_desc.get("dockerfile", None)
-    if dockerfile:
-        dockerfile = os.path.join(ctx, dockerfile)
-    else:
-        dockerfile_alts = [
-            "Containerfile",
-            "ContainerFile",
-            "containerfile",
-            "Dockerfile",
-            "DockerFile",
-            "dockerfile",
-        ]
-        for dockerfile in dockerfile_alts:
-            dockerfile = os.path.join(ctx, dockerfile)
+    dockerfile = build_desc.get("dockerfile")
+    dockerfile_inline = build_desc.get("dockerfile_inline")
+    if dockerfile_inline is not None:
+        dockerfile_inline = str(dockerfile_inline)
+        # Error if both `dockerfile_inline` and `dockerfile` are set
+        if dockerfile and dockerfile_inline:
+            raise OSError("dockerfile_inline and dockerfile can't be used simultaneously")
+        dockerfile = tempfile.NamedTemporaryFile(delete=False, suffix=".containerfile")
+        dockerfile.write(dockerfile_inline.encode())
+        dockerfile.close()
+        dockerfile = dockerfile.name
+
+        def cleanup_temp_dockfile():
             if os.path.exists(dockerfile):
-                break
-    if not os.path.exists(dockerfile):
+                os.remove(dockerfile)
+
+        if cleanup_callbacks is not None:
+            list.append(cleanup_callbacks, cleanup_temp_dockfile)
+    else:
+        if dockerfile:
+            dockerfile = os.path.join(ctx, dockerfile)
+        else:
+            dockerfile_alts = [
+                "Containerfile",
+                "ContainerFile",
+                "containerfile",
+                "Dockerfile",
+                "DockerFile",
+                "dockerfile",
+            ]
+            for dockerfile in dockerfile_alts:
+                dockerfile = os.path.join(ctx, dockerfile)
+                if path_exists(dockerfile):
+                    break
+    if not path_exists(dockerfile):
         raise OSError("Dockerfile not found in " + ctx)
     build_args = ["-f", dockerfile, "-t", cnt["image"]]
     if "platform" in cnt:
@@ -2436,8 +2570,34 @@ async def build_one(compose, args, cnt):
             "--build-arg",
             build_arg,
         ))
+    for cache_img in build_desc.get("cache_from", []):
+        build_args.extend(["--cache-from", cache_img])
+    for cache_img in build_desc.get("cache_to", []):
+        build_args.extend(["--cache-to", cache_img])
     build_args.append(ctx)
+    return build_args
+
+
+async def build_one(compose, args, cnt):
+    if "build" not in cnt:
+        return None
+    if getattr(args, "if_not_exists", None):
+        try:
+            img_id = await compose.podman.output(
+                [], "inspect", ["-t", "image", "-f", "{{.Id}}", cnt["image"]]
+            )
+        except subprocess.CalledProcessError:
+            img_id = None
+        if img_id:
+            return None
+
+    cleanup_callbacks = []
+    build_args = container_to_build_args(
+        compose, cnt, args, os.path.exists, cleanup_callbacks=cleanup_callbacks
+    )
     status = await compose.podman.run([], "build", build_args)
+    for c in cleanup_callbacks:
+        c()
     return status
 
 
@@ -2459,7 +2619,7 @@ async def compose_build(compose, args):
     status = 0
     for t in asyncio.as_completed(tasks):
         s = await t
-        if s is not None:
+        if s is not None and s != 0:
             status = s
 
     return status
@@ -2478,12 +2638,10 @@ async def create_pods(compose, args):  # pylint: disable=unused-argument
         podman_args = [
             "create",
             "--name=" + pod["name"],
-        ]
-        if args.pod_args:
-            podman_args.extend(shlex.split(args.pod_args))
+        ] + args.pod_arg_list
         # if compose.podman_version and not strverscmp_lt(compose.podman_version, "3.4.0"):
         #    podman_args.append("--infra-name={}_infra".format(pod["name"]))
-        ports = pod.get("ports", None) or []
+        ports = pod.get("ports", [])
         if isinstance(ports, str):
             ports = [ports]
         for i in ports:
@@ -2496,10 +2654,70 @@ def get_excluded(compose, args):
     if args.services:
         excluded = set(compose.services)
         for service in args.services:
-            excluded -= compose.services[service]["_deps"]
+            # we need 'getattr' as compose_down_parse dose not configure 'no_deps'
+            if service in compose.services and not getattr(args, "no_deps", False):
+                excluded -= set(x.name for x in compose.services[service]["_deps"])
             excluded.discard(service)
     log.debug("** excluding: %s", excluded)
     return excluded
+
+
+async def check_dep_conditions(compose: PodmanCompose, deps: set) -> None:
+    """Enforce that all specified conditions in deps are met"""
+    if not deps:
+        return
+
+    for condition in ServiceDependencyCondition:
+        deps_cd = []
+        for d in deps:
+            if d.condition == condition:
+                deps_cd.extend(compose.container_names_by_service[d.name])
+
+        if deps_cd:
+            # podman wait will return always with a rc -1.
+            while True:
+                try:
+                    await compose.podman.output(
+                        [], "wait", [f"--condition={condition.value}"] + deps_cd
+                    )
+                    log.debug(
+                        "dependencies for condition %s have been fulfilled on containers %s",
+                        condition.value,
+                        ', '.join(deps_cd),
+                    )
+                    break
+                except subprocess.CalledProcessError as _exc:
+                    output = list(
+                        ((_exc.stdout or b"") + (_exc.stderr or b"")).decode().split('\n')
+                    )
+                    log.debug(
+                        'Podman wait returned an error (%d) when executing "%s": %s',
+                        _exc.returncode,
+                        _exc.cmd,
+                        output,
+                    )
+                await asyncio.sleep(1)
+
+
+async def run_container(
+    compose: PodmanCompose, name: str, deps: set, command: tuple, log_formatter: str = None
+):
+    """runs a container after waiting for its dependencies to be fulfilled"""
+
+    # wait for the dependencies to be fulfilled
+    if "start" in command:
+        log.debug("Checking dependencies prior to container %s start", name)
+        await check_dep_conditions(compose, deps)
+
+    # start the container
+    log.debug("Starting task for container %s", name)
+    return await compose.podman.run(*command, log_formatter=log_formatter)
+
+
+def deps_from_container(args, cnt):
+    if args.no_deps:
+        return set()
+    return cnt['_deps']
 
 
 @cmd_run(podman_compose, "up", "Create and start the entire stack or some of its services")
@@ -2543,16 +2761,20 @@ async def compose_up(compose: PodmanCompose, args):
         if cnt["_service"] in excluded:
             log.debug("** skipping: %s", cnt["name"])
             continue
-        podman_args = await container_to_args(compose, cnt, detached=args.detach)
+        podman_args = await container_to_args(
+            compose, cnt, detached=args.detach, no_deps=args.no_deps
+        )
         subproc = await compose.podman.run([], podman_command, podman_args)
         if podman_command == "run" and subproc is not None:
-            await compose.podman.run([], "start", [cnt["name"]])
+            await run_container(
+                compose, cnt["name"], deps_from_container(args, cnt), ([], "start", [cnt["name"]])
+            )
     if args.no_start or args.detach or args.dry_run:
         return
     # TODO: handle already existing
     # TODO: if error creating do not enter loop
     # TODO: colors if sys.stdout.isatty()
-    exit_code_from = args.__dict__.get("exit_code_from", None)
+    exit_code_from = args.__dict__.get("exit_code_from")
     if exit_code_from:
         args.abort_on_container_exit = True
 
@@ -2563,8 +2785,21 @@ async def compose_up(compose: PodmanCompose, args):
 
     tasks = set()
 
-    loop = asyncio.get_event_loop()
-    loop.add_signal_handler(signal.SIGINT, lambda: [t.cancel("User exit") for t in tasks])
+    async def handle_sigint():
+        log.info("Caught SIGINT or Ctrl+C, shutting down...")
+        try:
+            log.info("Shutting down gracefully, please wait...")
+            down_args = argparse.Namespace(**dict(args.__dict__, volumes=False))
+            await compose.commands["down"](compose, down_args)
+        except Exception as e:
+            log.error("Error during shutdown: %s", e)
+        finally:
+            for task in tasks:
+                task.cancel()
+
+    if sys.platform != 'win32':
+        loop = asyncio.get_event_loop()
+        loop.add_signal_handler(signal.SIGINT, lambda: asyncio.create_task(handle_sigint()))
 
     for i, cnt in enumerate(compose.containers):
         # Add colored service prefix to output by piping output through sed
@@ -2578,7 +2813,13 @@ async def compose_up(compose: PodmanCompose, args):
 
         tasks.add(
             asyncio.create_task(
-                compose.podman.run([], "start", ["-a", cnt["name"]], log_formatter=log_formatter),
+                run_container(
+                    compose,
+                    cnt["name"],
+                    deps_from_container(args, cnt),
+                    ([], "start", ["-a", cnt["name"]]),
+                    log_formatter=log_formatter,
+                ),
                 name=cnt["_service"],
             )
         )
@@ -2624,7 +2865,7 @@ def get_volume_names(compose, cnt):
         mount_type = volume["type"]
         if mount_type != "volume":
             continue
-        volume_name = (volume.get("_vol", None) or {}).get("name", None)
+        volume_name = volume.get("_vol", {}).get("name")
         ls.append(volume_name)
     return ls
 
@@ -2644,7 +2885,7 @@ async def compose_down(compose: PodmanCompose, args):
         podman_stop_args = [*podman_args]
         timeout = timeout_global
         if timeout is None:
-            timeout_str = cnt.get("stop_grace_period", None) or STOP_GRACE_PERIOD
+            timeout_str = cnt.get("stop_grace_period", STOP_GRACE_PERIOD)
             timeout = str_to_seconds(timeout_str)
         if timeout is not None:
             podman_stop_args.extend(["-t", str(timeout)])
@@ -2732,7 +2973,7 @@ async def compose_run(compose, args):
             **dict(
                 args.__dict__,
                 detach=True,
-                services=deps,
+                services=[x.name for x in deps],
                 # defaults
                 no_build=False,
                 build=None,
@@ -2753,7 +2994,7 @@ async def compose_run(compose, args):
 
     compose_run_update_container_from_args(compose, cnt, args)
     # run podman
-    podman_args = await container_to_args(compose, cnt, args.detach)
+    podman_args = await container_to_args(compose, cnt, args.detach, args.no_deps)
     if not args.detach:
         podman_args.insert(1, "-i")
         if args.rm:
@@ -2789,7 +3030,7 @@ def compose_run_update_container_from_args(compose, cnt, args):
         cnt["ports"] = ports
     if args.volume:
         # TODO: handle volumes
-        volumes = clone(cnt.get("volumes", None) or [])
+        volumes = clone(cnt.get("volumes", []))
         volumes.extend(args.volume)
         cnt["volumes"] = volumes
     cnt["tty"] = not args.T
@@ -2855,9 +3096,8 @@ async def transfer_service_status(compose, args, action):
         if action != "start":
             timeout = timeout_global
             if timeout is None:
-                timeout_str = (
-                    compose.container_by_name[target].get("stop_grace_period", None)
-                    or STOP_GRACE_PERIOD
+                timeout_str = compose.container_by_name[target].get(
+                    "stop_grace_period", STOP_GRACE_PERIOD
                 )
                 timeout = str_to_seconds(timeout_str)
             if timeout is not None:
@@ -2916,9 +3156,11 @@ async def compose_logs(compose, args):
 async def compose_config(compose, args):
     if args.services:
         for service in compose.services:
-            print(service)
+            if not args.quiet:
+                print(service)
         return
-    print(compose.merged_yaml)
+    if not args.quiet:
+        print(compose.merged_yaml)
 
 
 @cmd_run(podman_compose, "port", "Prints the public port for a port binding.")
@@ -3359,7 +3601,7 @@ def compose_logs_parse(parser):
     parser.add_argument("-t", "--timestamps", action="store_true", help="Show timestamps.")
     parser.add_argument(
         "--tail",
-        help="Number of lines to show from the end of the logs for each " "container.",
+        help="Number of lines to show from the end of the logs for each container.",
         type=str,
         default="all",
     )
@@ -3451,6 +3693,12 @@ def compose_config_parse(parser):
     )
     parser.add_argument(
         "--services", help="Print the service names, one per line.", action="store_true"
+    )
+    parser.add_argument(
+        "-q",
+        "--quiet",
+        help="Do not print config, only parse.",
+        action="store_true",
     )
 
 

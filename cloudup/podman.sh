@@ -1,9 +1,10 @@
-#!/usr/bin/env bash
+#!/bin/sh
 #from mypriv.sh
 if test "x$BB_ASH_VERSION" != "x" ; then SCRIPT=$0; if test "x${SCRIPT}" = "x-ash" ; then SCRIPT=$1; fi; SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "${SCRIPT}")" && pwd) ; fi
 if test "x$ZSH_VERSION" != "x" ; then SCRIPT_DIR=${0:a:h} ; fi
 if test "x$BASH_VERSION" != "x" ; then SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}" )" && pwd )" ; fi
 if test "x$SHELL" = "x/bin/ash" ; then SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd) ; fi
+set -x
 
 err_exit() {
   echo $*
@@ -13,17 +14,59 @@ echodo() { echo _run_cmd:"$@"; $@; }
 
 cd $SCRIPT_DIR || err_exit
 
+_is_distro() {
+  cat /proc/version | grep -iq "$1"
+}
 
-if [ "x$1" == "cn" ] ; then
-update_mirror_cn() {
+is_alpine() { command -v apk && apk --version | grep apk-tools &> /dev/null; }
+
+is_debian() {
+  _is_distro "Debian"
+}
+
+is_ubuntu() {
+  _is_distro "Ubuntu"
+}
+
+update_mirror_debian_cn() {
 cat <<EOF > /etc/apt/sources.list
-deb http://mirrors.tuna.tsinghua.edu.cn/debian bookworm main contrib
-deb http://mirrors.tuna.tsinghua.edu.cn/debian bookworm-updates main contrib
-deb http://mirrors.tuna.tsinghua.edu.cn/debian-security bookworm-security main contrib
+deb https://mirrors.tuna.tsinghua.edu.cn/debian/ testing main contrib non-free non-free-firmware
+deb https://mirrors.tuna.tsinghua.edu.cn/debian/ testing-updates main contrib non-free non-free-firmware
+deb https://mirrors.tuna.tsinghua.edu.cn/debian/ testing-backports main contrib non-free non-free-firmware
+deb https://mirrors.tuna.tsinghua.edu.cn/debian-security testing-security main contrib non-free non-free-firmware
 EOF
 }
+update_mirror_ubuntu_cn() {
+cat <<EOF > /etc/apt/sources.list.d/ubuntu.sources
+Types: deb
+URIs: https://mirrors.tuna.tsinghua.edu.cn/ubuntu
+Suites: noble noble-updates noble-backports
+Components: main restricted universe multiverse
+Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+Types: deb
+URIs: https://mirrors.tuna.tsinghua.edu.cn/ubuntu
+Suites: noble-security
+Components: main restricted universe multiverse
+Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+EOF
+}
+
+if [ "x$1" == "xcn" ] ; then
+if [ ! -f /etc/apt/cfg.done ]; then
+is_debian && echodo update_mirror_debian_cn
+is_ubuntu && echodo update_mirror_ubuntu_cn
+fi
 fi
 
+install_new_podman_compose() {
+
+[ "x${cloudup_}" == "x" ] &&  cloudup_=$(wget -q --no-check-certificate -O- http://gitee.com/lrobot/dev_info/raw/master/cloudup_url.txt)
+wget -q --no-check-certificate -O /usr/local/bin/podman-compose http://${cloudup_}/podman-compose.py
+chmod +x /usr/local/bin/podman-compose
+}
+
+
+podman_install_debian() {
 # htpasswd need apache2-utils
 # docker-compose
 apt update
@@ -37,20 +80,9 @@ update-binfmts --display
 systemctl restart dbus-broker
 systemctl stop dnsmasq
 systemctl disable dnsmasq
-# https://github.com/containers/podman-compose
-if [ -f podman-compose.py ] ; then
-  echodo cp podman-compose.py /usr/local/bin/podman-compose
-else
-if [ "x$cloudup_" != "x" ] ; then
-  echodo curl -sSfL https://$cloudup_/podman-compose.py -o /tmp/podman-compose.py && echodo cp -a /tmp/podman-compose.py /usr/local/bin/podman-compose
-else
-echo export cloudup_url=xxxxxx 
-echo cp podman-compose.py /usr/local/bin/podman-compose
-echo chmod a+x /usr/local/bin/podman-compose
-fi
-fi
 
-chmod a+x /usr/local/bin/podman-compose
+install_new_podman_compose
+
 grep docker /etc/containers/registries.conf || {
  echo "add docker.io for docker search"
  echo 'unqualified-search-registries = ["docker.io"]' >> /etc/containers/registries.conf
@@ -62,3 +94,14 @@ grep docker /etc/containers/registries.conf || {
 #mkdir -p /etc/apparmor.d/local/
 #cp usr.sbin.dnsmasq /etc/apparmor.d/local/
 #which apparmor_parser  && apparmor_parser -r /etc/apparmor.d/local/usr.sbin.dnsmasq
+}
+podman_install_alpine() {
+apk add podman podman-compose dnsmasq
+rc-update add cgroups
+rc-service cgroups start
+install_new_podman_compose
+}
+
+is_debian && echodo podman_install_debian
+is_alpine && echodo podman_install_alpine
+

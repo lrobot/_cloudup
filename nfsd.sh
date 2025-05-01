@@ -76,7 +76,7 @@ port=7103
 # debug=0
 # threads=8
 # host=
-port=7104
+# port=2409
 # grace-time=90
 # lease-time=90
 # udp=n
@@ -102,7 +102,7 @@ outgoing-port=7106
 # debug=0
 # force=0
 # retry-time=900
- outgoing-port=7107
+outgoing-port=7107
 # outgoing-addr=
 # lift-grace=y
 #
@@ -111,7 +111,7 @@ outgoing-port=7106
 EOF
 
 cat <<EOF > /etc/sysctl.d/nfs-static-ports.conf
-fs.nfs.nfs_callback_tcpport = 7108
+#fs.nfs.nfs_callback_tcpport = 7108
 fs.nfs.nlm_tcpport = 7109
 fs.nfs.nlm_udpport = 7110
 EOF

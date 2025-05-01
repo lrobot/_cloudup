@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>_help_cloudup</title>
+    <!-- <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" rel="stylesheet"> -->
+    <!-- 引入 marked 库 -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        pre {
+            background-color: #f4f4f4;
+            padding: 1rem;
+            border-radius: 0.25rem;
+            overflow-x: auto;
+            border: 1px solid #ccc;
+            position: relative;
+        }
+
+        button.copy-btn {
+            background-color: #007BFF;
+            color: white;
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 0.25rem;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+        }
+
+        button.copy-btn:hover {
+            background-color: #0056b3;
+        }
+        button.copy-btn.success {
+            background: linear-gradient(to right, #28a745, #218838);
+            transition: background 0.3s ease;
+        }
+        input {
+          border: 1px solid black;
+        }
+    </style>
+</head>
+
+<body class="p-8">
+  input new domain: <input style="width: 20em;" id="edit_host" type="text" value="domain.com" oninput="updateHostNameWithInput()"/>
+    <div id="markdown-content"></div>
+    <script>
+      // apt install -y nfs-common; mkdir -p /nfs.remote ;mount -t nfs -o ro domain.com:/nfs.remote /nfs.remote; /nfs.remote/_cloudup/cloudup/podman.sh
+      // setup-interfaces -ar; wget https://domain.com/setup-alpine.cfg; setup-alpine -e -f setup-alpine.cfg
+        var markdown = `
+## wget vs curl
+ * wget -O- 
+ * curl -sSfL
+
+
+ ## bootstrap
+\`\`\`shell
+export cloudup_=domain.com; 
+clouduprun() { wget -O- http://domain.com/\${1} | sh; }
+\`\`\`
+
+
+## setup-alpine 
+* please set passwd for root&normal user, no passwd will not allow remote login(will deny login both by passwd&key auth)
+\`\`\`shell
+setup-alpine -e -f https://domain.com/setup-alpine.cfg
+\`\`\`
+
+## mirror
+\`\`\`shell
+wget -O- http://domain.com/os_mirror_setup.sh | sh
+\`\`\`
+
+## podman
+\`\`\`shell
+wget -O- http://domain.com/podman.sh | sh
+\`\`\`
+
+## k8s
+\`\`\`shell
+wget -O- http://domain.com/k8s.sh | sh
+\`\`\`
+
+## nfs
+\`\`\`shell
+wget -O- http://domain.com/nfs.sh | sh
+\`\`\`
+`;
+  function renderMarkDown() {
+            // 渲染 Markdown 内容
+            const renderedHtml = marked.parse(markdown);
+    const contentDiv = document.getElementById('markdown-content');
+    contentDiv.innerHTML = renderedHtml;
+
+    // 为每个代码块添加拷贝按钮
+    const codeBlocks = document.querySelectorAll('pre');
+    codeBlocks.forEach((codeBlock) => {
+        const button = document.createElement('button');
+        button.textContent = '拷贝';
+        button.classList.add('copy-btn');
+        button.addEventListener('click', () => {
+          var text = '';
+          const codes = codeBlock.querySelectorAll('code');
+          for(var i = 0; i < codes.length; i++) {
+            text += codes[i].textContent;
+          }
+          navigator.clipboard.writeText(text);
+          // alert(text);
+
+          button.classList.add('success');
+          setTimeout(() => {
+              button.classList.remove('success');
+          }, 300);
+        });
+        codeBlock.appendChild(button);
+    });
+  }
+  function updateHostNameBy(newHost) {
+    var oldHost = last_domain;
+    markdown = markdown.replaceAll(oldHost, newHost);
+    renderMarkDown();
+    last_domain = newHost;
+  }
+  function updateHostNameWithInput() {
+    var host = document.querySelector('#edit_host').value;
+    if (host == "") {
+      host = "domain.com";
+    }
+    updateHostNameBy(host);
+  }
+  var last_domain = "domain.com";
+  var inputValue = window.location.host;
+  document.querySelector('#edit_host').value = inputValue;
+  updateHostNameWithInput();
+    </script>
+</body>
+
+</html>

@@ -24,7 +24,7 @@ DATA_DIR=/_data${SCRIPT_DIR}/${CONTAINER_NAME}
 echodo mkdir -p ${DATA_DIR}
 echodo podman stop ${CONTAINER_NAME}
 echodo podman rm ${CONTAINER_NAME}
-echodo podman rmi -f kmeeting:latest
+echodo podman rmi -f qmeeting:latest
 
 #[ -f ./.env ] && source ./.env
 
@@ -42,9 +42,9 @@ EOF
 }
 
 echodo __label_file
-echodo podman run --tls-verify=false --name ${CONTAINER_NAME} -d \
+echodo podman run --rm --tls-verify=false --name ${CONTAINER_NAME} -d \
 -v ${DATA_DIR}:/data \
 --label-file <(__label_file) \
-docker://registry.rbat.tk/kmeeting:latest
+docker://registry.rbat.tk/qmeeting:latest
 echodo podman logs -f ${CONTAINER_NAME}
 
