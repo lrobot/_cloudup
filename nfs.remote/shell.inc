@@ -1,9 +1,58 @@
+Osname() { uname -s; }
+osname() { uname -s | tr '[:upper:]' '[:lower:]'; }
+is_darwin() { [[ "x$(uname -s)" == "xDarwin" ]]; }
+is_linux() { [[ "x$(uname -s)" == "xLinux" ]]; }
+is_mingw() { [[ "x$(uname -s)" == "xMINGW64_NT" ]]; }
+shellname() { is_linux && basename $(readlink /proc/$$/exe) || { is_darwin && basename $(ps -p $$ -ocomm=|sed 's/-//g'); };}
+is_bash() { [[ "x$(shellname)" == "xbash" ]]; }
+is_zsh() { [[ "x$(shellname)" == "xzsh" ]]; }
+is_ash() { [[ "x$(shellname)" == "xash" ]] || [[ "x$(shellname)" == "xbusybox" ]]; }
+
+hasbin() { which ${1} &> /dev/null;}
+
+hasbin fzf && {
+is_bash && source <(fzf --bash)
+is_zsh && source <(fzf --zsh)
+}
+
 if [ "x${SHELL}" == "x" ]; then
   alias reload='exec sh -l'
 else
   alias reload="exec ${SHELL} -l"
 fi
 
+
+
+srvdo() {
+  local srv=$1
+  local oper=$2
+  if [ -x /etc/init.d/${srv} ] ; then
+    /etc/init.d/${srv} ${oper}
+  else
+    hasbin systemctl && systemctl ${oper} ${srv}
+    hasbin rc-service -i ${srv} ${oper}
+  fi
+}
+
+
+echodo() { echo _rshell:"$@"; $@; }
+
+# https://github.com/VSCodium/vscodium/blob/master/docs/index.md#howto-switch-marketplace
+#this still not work
+#now need modify /usr/lib/code-oss/resources/app/product.json 
+#  "extensionsGallery": {
+#    "serviceUrl": "https://marketplace.visualstudio.com/_apis/public/gallery",
+#    "cacheUrl": "https://vscode.blob.core.windows.net/gallery/index",
+#    "itemUrl": "https://marketplace.visualstudio.com/items",
+#    "_serviceUrl": "https://open-vsx.org/vscode/gallery",
+#    "_itemUrl": "https://open-vsx.org/vscode/item"
+#  },
+#export VSCODE_GALLERY_SERVICE_URL=https://marketplace.visualstudio.com/_apis/public/gallery
+#export VSCODE_GALLERY_ITEM_URL=https://marketplace.visualstudio.com/items
+
+export GO111MODULE=on
+export GOPROXY=https://goproxy.cn
+export GOPROXY=https://goproxy.io,direct
 
 when_login_echo() {
 echo $(hostname) ==============================
@@ -13,7 +62,7 @@ ip addr | grep 'inet '
 when_login_echo
 export PATH=$(echo /root/istio-*/bin):$PATH
 export cloudup_=cloudup.danfestar.cn; 
-clouduprun() { wget -O- http://cloudup.danfestar.cn/${1} | sh; }
+clouduprun() { wget -O- http://${cloudup_}/${1} | sh; }
 
 
 [ -e /run/containerd/containerd.sock ] && export CONTAINER_RUNTIME_ENDPOINT=unix:///run/containerd/containerd.sock
@@ -144,32 +193,6 @@ prefixechodo() { echo "$@"; "$@"; }
 cloudup_reload() {
   source /nfs.remote/_cloudup/shell.inc
 }
-socksenableby(){
-    echo 'socksenableby socks5h://127.0.0.1:7890 #help'
-    echo 'socksdisable #help'
-    echo 'qenv_proxyXXXX #help'
-  [ "x${1}" == "x" ] && {
-    echo "usage: socksenableby socks5h://127.0.0.1:7890"
-  } || {
-    local proxyIp=$(echo ${1}|sed 's%://% %;s%:% %' | awk '{print $2}')
-    local proxyPort=$(echo ${1}|sed 's%://% %;s%:% %' | awk '{print $3}')
-    local pry_="_PROXY=${1}";
-    prefixechodo export HTTP${pry_};
-    prefixechodo export HTTPS${pry_};
-    prefixechodo export FTP${pry_};
-    prefixechodo export RSYNC${pry_};
-    prefixechodo export ALL${pry_};
-  }
-}
-
-socksdisable(){
-  prefixechodo unset HTTP_PROXY
-  prefixechodo unset HTTPS_PROXY
-  prefixechodo unset FTP_PROXY
-  prefixechodo unset RSYNC_PROXY
-  prefixechodo unset ALL_PROXY
-  prefixechodo export SBT_OPTS="$SBT_OPTS_ORIGIN"
-}
 
 which git > /dev/null 2>&1 && {
 
@@ -219,7 +242,31 @@ tailscale_up_home() {
 }
 
 
-k8s_kubeconfig_by_kubeadmin() {
+
+
+ipu_show() {
+ip route show table all
+ip rule
+ip link
+ip tuntap
+}
+
+gitu_configusername() {
+	if [ "x$2" == "x" ] ; then
+		echo "help: $0 <user.name> <user.email>"
+	else
+		echodo git config --global user.name $1
+		echodo git config --global user.email $2
+	fi
+}
+
+
+hasbin kubeadm && {
+
+#is_bash && trysource_completion kubeadm completion bash
+#is_zsh && trysource_completion kubeadm completion zsh
+
+k8s_kubeconfig_by_kubeadm() {
   mkdir -p $HOME/.kube
   sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
   sudo chown $(id -u):$(id -g) $HOME/.kube/config
@@ -227,21 +274,95 @@ k8s_kubeconfig_by_kubeadmin() {
 
 k8s_clearup() {
 
-/etc/init.d/kubelet stop
+srvdo kubelet stop
 crictl pods -q | xargs -n1 crictl stopp
 crictl pods -q | xargs -n1 crictl rmp
 rm -rf /etc/kubernetes
 rm -rf /var/lib/etcd
 kubeadm reset
+kubeadm reset -f
+ip link delete cni0
+ip link delete flannel.1
 
 }
 
-k8s_init_nodemaster() {
 
-[ -f ~/k8s_init_cfg.yml ] || kubeadm config print init-defaults > ~/k8s_init_cfg.yml
-echo find 1.2.3.4 to replace
-vi ~/k8s_init_cfg.yml
-kubeadm --v=5 init --config ~/k8s_init_cfg.yml
-#kubeadm --v=5 init --config ~/k8s_init_cfg.yml --pod-network-cidr=10.244.0.0/16 --node-name=$(hostname)
+k8s_init_controlnode() {
+ if [ $# -lt 2 ] ; then
+   echo "k8s_init_controlnode controlEndpoint nodeName"
+   echo "k8s + cluater_name + c + e, c:ctrl e:entry"
+   echo "k8s_init_controlnode k8sdc k8sdc1"
+   echo "k8s_init_controlnode k8sdc k8sdc2"
+   echo "k8s_init_controlnode k8sdc k8sdc3"
+   return
+ fi
+controlEndpoint=$1
+nodeName=$2
+nodeNamePrefix=${nodeName%?}
+nodeNameSuffix=${nodeName: -1}
+if [ "x$nodeNameSuffix" = "x1" ]; then
+keepaliveState=MASTER
+else
+keepaliveState=BACKUP
+fi
+ctrlEpIp=$(getent hosts ${controlEndpoint}|awk '{print $1}')
+if [ "x$ctrlEpIp" = "x" ]; then
+  echo "err get ip of $controlEndpoint"
+	return
+fi
+echo ip is: $ctrlEpIp
+ 
+apk add haproxy keepalived
+echo $nodeName > /etc/hostname
+sed -i "s/127\.0\.0\.1.*$/127.0.0.1 ${nodeName}.lan ${nodeName} localhost.localdomain localhost/g" /etc/hosts
+curl -sSfL https://${cloudup_}/haproxy.cfg | sed "s/k8sc/${nodeNamePrefix}/g" > /etc/haproxy/haproxy.cfg
+srvdo haproxy restart
+(cd /etc/keepalived && {
+ curl -sSfL http://${cloudup_}/keepalived.conf | sed -e "s/192.168.1.XX/${ctrlEpIp}/g" | sed -e "s/state MASTER/state $keepaliveState/g" > /etc/keepalived/keepalived.conf
+ curl -sSfLO http://${cloudup_}/keepalived.check.sh
+ chmod a+x keepalived.check.sh
+})
+srvdo keepalived restart
+kubeadm config images pull --image-repository registry.aliyuncs.com/google_containers
+kubeadm init --v=5 --upload-certs --image-repository registry.aliyuncs.com/google_containers --control-plane-endpoint=${controlEndpoint}:16443 --pod-network-cidr=10.244.0.0/16
 
 }
+
+kubeadmu_dumpinfo() {
+  echo "--discovery-token-ca-cert-hash sha256:$(certu_certsha256 /etc/kubernetes/pki/ca.crt)"
+}
+
+
+kubeadmu_showjoin() {
+  kubeadm token create --print-join-command
+  #echo "kubeadm join $(kubectlutil_getclusterserver) --token $(kubeadm token create) --discovery-token-ca-cert-hash sha256:$(certu_certsha256 /etc/kubernetes/pki/ca.crt)"
+}
+
+kubeadmu_showjoinctrlpane() {
+  CERT_ENCRYPT_KEY_IN_kubeadm_certs_Secret=$(kubeadm certs certificate-key)
+  echo certificate key :${CERT_ENCRYPT_KEY_IN_kubeadm_certs_Secret}
+  kubeadm init phase upload-certs --upload-certs --certificate-key ${CERT_ENCRYPT_KEY_IN_kubeadm_certs_Secret}
+  echo can: "kubeadmutilcheck && $(kubeadm token create --print-join-command) --v=5 --control-plane --certificate-key ${CERT_ENCRYPT_KEY_IN_kubeadm_certs_Secret}"
+}
+
+kubeadmu_reset() {
+  set -x
+  kubeadm reset phase remove-etcd-member
+  kubeadm reset -f
+  srvdo kubelet stop
+  nerdctl_clear_k8s
+  pkill -f 'namespace k8s.io'
+  df -h |grep kubelet| sed 's@^.*/var/lib/kubelet@/var/lib/kubelet@' | xargs -n1 umount || true
+  hasbin ipvsadm && ipvsadm --clear
+  ip link delete cni0
+  ip link delete flannel.1
+  rm -rf /etc/kubernetes/
+  ls /etc/cni/net.d/* | grep -v 10-containerd-net.conflist | xargs -n1 rm -f
+  rm -rf /var/lib/{cni,calico,etcd,flannel}
+  rm -rf /var/run/{cni,calico,etcd,flannel}
+  rm -rf ~/.kube
+  set +x
+}
+
+}
+

@@ -11,7 +11,7 @@ echo "net.ipv4.ip_forward=1" >> /etc/sysctl.conf
 echo "net.bridge.bridge-nf-call-iptables=1" >> /etc/sysctl.conf
 sysctl net.bridge.bridge-nf-call-iptables=1
 
-apk add cni-plugins cni-plugin-flannel kubelet kubeadm kubectl containerd uuidgen nfs-utils
+apk add bash cni-plugins cni-plugin-flannel kubelet kubeadm kubectl containerd uuidgen nfs-utils bash-completion kubectl-bash-completion kubeadm-bash-completion
 cp -av /etc/fstab /etc/fstab.bak_for_k8s_setup
 sed -i '/swap/s/^/#/' /etc/fstab
 swapoff -a
