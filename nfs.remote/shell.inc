@@ -7,8 +7,26 @@ shellname() { is_linux && basename $(readlink /proc/$$/exe) || { is_darwin && ba
 is_bash() { [[ "x$(shellname)" == "xbash" ]]; }
 is_zsh() { [[ "x$(shellname)" == "xzsh" ]]; }
 is_ash() { [[ "x$(shellname)" == "xash" ]] || [[ "x$(shellname)" == "xbusybox" ]]; }
-
 hasbin() { which ${1} &> /dev/null;}
+
+
+is_bash && {
+set +o posix #bash need this for <() work
+trysource_completion() {
+  [[ -z $BASH_COMPLETION_VERSINFO ]] && return
+  local bin=$1; hasbin $bin && source <($@);
+}
+}
+is_zsh && {
+setopt NO_NOMATCH
+trysource_completion() {
+  ! hasbin complete && return
+  local bin=$1; hasbin $bin && source <($@);
+}
+}
+is_ash && {
+trysource_completion() { :; }
+}
 
 hasbin fzf && {
 is_bash && source <(fzf --bash)
@@ -30,8 +48,12 @@ srvdo() {
     /etc/init.d/${srv} ${oper}
   else
     hasbin systemctl && systemctl ${oper} ${srv}
-    hasbin rc-service -i ${srv} ${oper}
+    hasbin rc-service &&  rc-service -i ${srv} ${oper}
   fi
+}
+srvenable() {
+ hasbin rc-update && rc-update add $1 default
+ hasbin systemctl && systemctl enable $1
 }
 
 
@@ -67,6 +89,14 @@ clouduprun() { wget -O- http://${cloudup_}/${1} | sh; }
 
 [ -e /run/containerd/containerd.sock ] && export CONTAINER_RUNTIME_ENDPOINT=unix:///run/containerd/containerd.sock
 [ -f /etc/kubernetes/admin.conf ] && export KUBECONFIG=/etc/kubernetes/admin.conf
+hasbin etcdctl && [ -f /etc/kubernetes/pki/etcd/server.key ] && {
+export ETCDCTL_API=3
+export ETCDCTL_ENDPOINTS=127.0.0.1:2379
+export ETCDCTL_DIAL_TIMEOUT=3s
+export ETCDCTL_CACERT=/etc/kubernetes/pki/etcd/ca.crt
+export ETCDCTL_CERT=/etc/kubernetes/pki/etcd/server.crt
+export ETCDCTL_KEY=/etc/kubernetes/pki/etcd/server.key
+}
 
 
 proxyenableby(){ 
@@ -261,6 +291,12 @@ gitu_configusername() {
 }
 
 
+
+hasbin crictl && {
+is_bash && trysource_completion crictl completion bash
+is_zsh && trysource_completion crictl completion zsh
+}
+
 hasbin kubeadm && {
 
 #is_bash && trysource_completion kubeadm completion bash
@@ -273,14 +309,20 @@ k8s_kubeconfig_by_kubeadm() {
 }
 
 k8s_clearup() {
-
 srvdo kubelet stop
-crictl pods -q | xargs -n1 crictl stopp
-crictl pods -q | xargs -n1 crictl rmp
-rm -rf /etc/kubernetes
-rm -rf /var/lib/etcd
-kubeadm reset
 kubeadm reset -f
+crictl rmp -af
+crictl rm -af
+#crictl rmi -aq
+rm -rf /etc/kubernetes
+rm -rf /var/lib/etcd/
+rm -rf /var/lib/kubelet/*
+rm -rf /etc/cni/net.d/
+rm -rf /var/log/kubelet/*
+mkdir -p /var/log/kubelet
+rm -rf ~/.kube/
+iptables --flush
+iptables -tnat --flush
 ip link delete cni0
 ip link delete flannel.1
 
@@ -291,9 +333,9 @@ k8s_init_controlnode() {
  if [ $# -lt 2 ] ; then
    echo "k8s_init_controlnode controlEndpoint nodeName"
    echo "k8s + cluater_name + c + e, c:ctrl e:entry"
-   echo "k8s_init_controlnode k8sdc k8sdc1"
-   echo "k8s_init_controlnode k8sdc k8sdc2"
-   echo "k8s_init_controlnode k8sdc k8sdc3"
+   echo "k8s_init_controlnode k8sdce k8sdc1"
+   echo "k8s_init_controlnode k8sdce k8sdc2"
+   echo "k8s_init_controlnode k8sdce k8sdc3"
    return
  fi
 controlEndpoint=$1
@@ -316,16 +358,28 @@ apk add haproxy keepalived
 echo $nodeName > /etc/hostname
 sed -i "s/127\.0\.0\.1.*$/127.0.0.1 ${nodeName}.lan ${nodeName} localhost.localdomain localhost/g" /etc/hosts
 curl -sSfL https://${cloudup_}/haproxy.cfg | sed "s/k8sc/${nodeNamePrefix}/g" > /etc/haproxy/haproxy.cfg
+srvenable haproxy
 srvdo haproxy restart
+mkdir -p /etc/keepalived
 (cd /etc/keepalived && {
- curl -sSfL http://${cloudup_}/keepalived.conf | sed -e "s/192.168.1.XX/${ctrlEpIp}/g" | sed -e "s/state MASTER/state $keepaliveState/g" > /etc/keepalived/keepalived.conf
+ curl -sSfL http://${cloudup_}/keepalived.conf |
+        sed -e "s/192.168.1.XX/${ctrlEpIp}/g" |
+        sed -e "s/priority 10X/priority 10${nodeNameSuffix}/g" |
+        sed -e "s/state MASTER/state $keepaliveState/g" > /etc/keepalived/keepalived.conf
  curl -sSfLO http://${cloudup_}/keepalived.check.sh
  chmod a+x keepalived.check.sh
 })
+srvenable keepalived
 srvdo keepalived restart
 kubeadm config images pull --image-repository registry.aliyuncs.com/google_containers
-kubeadm init --v=5 --upload-certs --image-repository registry.aliyuncs.com/google_containers --control-plane-endpoint=${controlEndpoint}:16443 --pod-network-cidr=10.244.0.0/16
-
+mkdir -p /var/log/kubelet
+if [ "x$nodeNameSuffix" = "x1" ]; then
+echodo kubeadm init --v=5 --upload-certs --image-repository registry.aliyuncs.com/google_containers --control-plane-endpoint=${controlEndpoint}:16443 --pod-network-cidr=10.244.0.0/16 | tee ~/join.txt
+export KUBECONFIG=/etc/kubernetes/admin.conf
+echodo kubectl apply -f  https://raw.githubusercontent.com/flannel-io/flannel/master/Documentation/kube-flannel.yml
+else
+echo need run: kubeadm join xxx
+fi
 }
 
 kubeadmu_dumpinfo() {
