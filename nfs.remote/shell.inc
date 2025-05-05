@@ -10,6 +10,18 @@ is_ash() { [[ "x$(shellname)" == "xash" ]] || [[ "x$(shellname)" == "xbusybox" ]
 hasbin() { which ${1} &> /dev/null;}
 
 
+rshell_reload() {
+  source /nfs.remote/shell.inc
+}
+
+rshell_rsync() {
+  [ -d /_nfs.remote ] && {
+  rsync -av vhtx.rbat.tk:/nfs.remote/ /_nfs.remote/
+  source /_nfs.remote/shell.inc
+  }
+}
+
+
 is_bash && {
 set +o posix #bash need this for <() work
 trysource_completion() {
@@ -33,13 +45,56 @@ is_bash && source <(fzf --bash)
 is_zsh && source <(fzf --zsh)
 }
 
+hasbin tailscale && {
+is_bash && source <(tailscale completion bash)
+is_zsh && source <(tailscale completion zsh)
+}
+
 if [ "x${SHELL}" == "x" ]; then
   alias reload='exec sh -l'
 else
   alias reload="exec ${SHELL} -l"
 fi
 
+# for rust and cargo
+hasbin cargo && {
+export RUSTUP_DIST_SERVER="https://rsproxy.cn"
+export RUSTUP_UPDATE_ROOT="https://rsproxy.cn/rustup"
 
+cargo_mirror_tuna() {
+mkdir -vp ${CARGO_HOME:-$HOME/.cargo}
+
+cat << EOF | tee -a ${CARGO_HOME:-$HOME/.cargo}/config.toml
+[source.crates-io]
+replace-with = 'mirror'
+
+[source.mirror]
+registry = "https://mirrors.tuna.tsinghua.edu.cn/git/crates.io-index.git"
+EOF
+}
+
+cargo_mirror_bytedance() {
+mkdir -vp ${CARGO_HOME:-$HOME/.cargo}
+cat << EOF | tee -a ${CARGO_HOME:-$HOME/.cargo}/config.toml
+[source.crates-io]
+replace-with = 'rsproxy-sparse'
+[source.rsproxy]
+registry = "https://rsproxy.cn/crates.io-index"
+[source.rsproxy-sparse]
+registry = "sparse+https://rsproxy.cn/index/"
+[registries.rsproxy]
+index = "https://rsproxy.cn/crates.io-index"
+[net]
+git-fetch-with-cli = true
+EOF
+}
+
+if [ -f ${CARGO_HOME:-$HOME/.cargo}/config.toml ]; then
+  true
+else
+  cargo_mirror_bytedance
+fi
+}
 
 srvdo() {
   local srv=$1
@@ -217,12 +272,9 @@ fi
 }
 
 
-sethostname() { echo ${1} > /etc/hostname ; grep "^127.0.0.1 ${1}$" /etc/hosts || echo "127.0.0.1 ${1}" >> /etc/hosts ; hostname ${1}; }
+sethostname() { echo ${1} > /etc/hostname ; sed -i "s/127\.0\.0\.1.*$/127.0.0.1 ${1}.lan ${1} localhost.localdomain localhost/g" /etc/hosts; hostname ${1}; }
 prefixechodo() { echo "$@"; "$@"; }
 
-cloudup_reload() {
-  source /nfs.remote/_cloudup/shell.inc
-}
 
 which git > /dev/null 2>&1 && {
 
@@ -307,25 +359,47 @@ k8s_kubeconfig_by_kubeadm() {
   sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
   sudo chown $(id -u):$(id -g) $HOME/.kube/config
 }
+k8s_show() {
+echodo etcdctl member list
+echodo kubectl cluster-info dump
+}
 
 k8s_clearup() {
-srvdo kubelet stop
+kubeadm reset phase remove-etcd-member
 kubeadm reset -f
+srvdo kubelet stop
+#nerdctl_clear_k8s
 crictl rmp -af
 crictl rm -af
 #crictl rmi -aq
-rm -rf /etc/kubernetes
-rm -rf /var/lib/etcd/
-rm -rf /var/lib/kubelet/*
-rm -rf /etc/cni/net.d/
-rm -rf /var/log/kubelet/*
-mkdir -p /var/log/kubelet
-rm -rf ~/.kube/
-iptables --flush
-iptables -tnat --flush
+pkill -f 'namespace k8s.io'
+df -h |grep kubelet| sed 's@^.*/var/lib/kubelet@/var/lib/kubelet@' | xargs -rn1 umount || true
+hasbin ipvsadm && ipvsadm --clear
 ip link delete cni0
 ip link delete flannel.1
+rm -rf /etc/kubernetes/*
+rm -rf /var/lib/{kubelet,cni,calico,etcd,flannel}/*
+rm -rf /var/run/{kubelet,cni,calico,etcd,flannel}/*
+rm -rf /var/log/{kubelet,cni,calico,etcd,flannel}/*
+rm -rf /etc/cni/net.d/*
+rm -rf ~/.kube/*
+iptables --flush
+iptables -tnat --flush
+}
 
+kubeadmu_reset() {
+  set -x
+  pkill -f 'namespace k8s.io'
+  df -h |grep kubelet| sed 's@^.*/var/lib/kubelet@/var/lib/kubelet@' | xargs -n1 umount || true
+  hasbin ipvsadm && ipvsadm --clear
+  ip link delete cni0
+  ip link delete flannel.1
+  rm -rf /etc/kubernetes/
+  ls /etc/cni/net.d/* | grep -v 10-containerd-net.conflist | xargs -n1 rm -f
+  rm -rf /var/lib/{cni,calico,etcd,flannel}
+  rm -rf /var/run/{cni,calico,etcd,flannel}
+  rm -rf ~/.kube
+  set +x
 }
 
 
@@ -355,8 +429,7 @@ fi
 echo ip is: $ctrlEpIp
  
 apk add haproxy keepalived
-echo $nodeName > /etc/hostname
-sed -i "s/127\.0\.0\.1.*$/127.0.0.1 ${nodeName}.lan ${nodeName} localhost.localdomain localhost/g" /etc/hosts
+sethostname $nodeName
 curl -sSfL https://${cloudup_}/haproxy.cfg | sed "s/k8sc/${nodeNamePrefix}/g" > /etc/haproxy/haproxy.cfg
 srvenable haproxy
 srvdo haproxy restart
@@ -372,7 +445,6 @@ mkdir -p /etc/keepalived
 srvenable keepalived
 srvdo keepalived restart
 kubeadm config images pull --image-repository registry.aliyuncs.com/google_containers
-mkdir -p /var/log/kubelet
 if [ "x$nodeNameSuffix" = "x1" ]; then
 echodo kubeadm init --v=5 --upload-certs --image-repository registry.aliyuncs.com/google_containers --control-plane-endpoint=${controlEndpoint}:16443 --pod-network-cidr=10.244.0.0/16 | tee ~/join.txt
 export KUBECONFIG=/etc/kubernetes/admin.conf
@@ -382,16 +454,10 @@ echo need run: kubeadm join xxx
 fi
 }
 
-kubeadmu_dumpinfo() {
-  echo "--discovery-token-ca-cert-hash sha256:$(certu_certsha256 /etc/kubernetes/pki/ca.crt)"
-}
-
-
 kubeadmu_showjoin() {
   kubeadm token create --print-join-command
   #echo "kubeadm join $(kubectlutil_getclusterserver) --token $(kubeadm token create) --discovery-token-ca-cert-hash sha256:$(certu_certsha256 /etc/kubernetes/pki/ca.crt)"
 }
-
 kubeadmu_showjoinctrlpane() {
   CERT_ENCRYPT_KEY_IN_kubeadm_certs_Secret=$(kubeadm certs certificate-key)
   echo certificate key :${CERT_ENCRYPT_KEY_IN_kubeadm_certs_Secret}
@@ -399,24 +465,6 @@ kubeadmu_showjoinctrlpane() {
   echo can: "kubeadmutilcheck && $(kubeadm token create --print-join-command) --v=5 --control-plane --certificate-key ${CERT_ENCRYPT_KEY_IN_kubeadm_certs_Secret}"
 }
 
-kubeadmu_reset() {
-  set -x
-  kubeadm reset phase remove-etcd-member
-  kubeadm reset -f
-  srvdo kubelet stop
-  nerdctl_clear_k8s
-  pkill -f 'namespace k8s.io'
-  df -h |grep kubelet| sed 's@^.*/var/lib/kubelet@/var/lib/kubelet@' | xargs -n1 umount || true
-  hasbin ipvsadm && ipvsadm --clear
-  ip link delete cni0
-  ip link delete flannel.1
-  rm -rf /etc/kubernetes/
-  ls /etc/cni/net.d/* | grep -v 10-containerd-net.conflist | xargs -n1 rm -f
-  rm -rf /var/lib/{cni,calico,etcd,flannel}
-  rm -rf /var/run/{cni,calico,etcd,flannel}
-  rm -rf ~/.kube
-  set +x
-}
 
 }
 
