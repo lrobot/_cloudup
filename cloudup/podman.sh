@@ -18,7 +18,7 @@ _is_distro() {
   cat /proc/version | grep -iq "$1"
 }
 
-is_alpine() { command -v apk && apk --version | grep apk-tools &> /dev/null; }
+is_alpine() { command -v apk >/dev/null 2>&1 && { apk --version | grep -q apk-tools > /dev/null 2>&1; }; }
 
 is_debian() {
   _is_distro "Debian"
@@ -51,7 +51,7 @@ Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
 EOF
 }
 
-if [ "x$1" == "xcn" ] ; then
+if [ "x$1" = "xcn" ] ; then
 if [ ! -f /etc/apt/cfg.done ]; then
 is_debian && echodo update_mirror_debian_cn
 is_ubuntu && echodo update_mirror_ubuntu_cn
@@ -60,7 +60,7 @@ fi
 
 install_new_podman_compose() {
 
-[ "x${cloudup_}" == "x" ] &&  cloudup_=$(wget -q --no-check-certificate -O- http://gitee.com/lrobot/dev_info/raw/master/cloudup_url.txt)
+[ "x${cloudup_}" = "x" ] &&  cloudup_=$(wget -q --no-check-certificate -O- http://gitee.com/lrobot/dev_info/raw/master/cloudup_url.txt)
 wget -q --no-check-certificate -O /usr/local/bin/podman-compose http://${cloudup_}/podman-compose.py
 chmod +x /usr/local/bin/podman-compose
 }
