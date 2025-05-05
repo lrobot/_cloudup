@@ -13,7 +13,7 @@ services:
       - "--entrypoints.ep_webtls.address=:443"
       - "--certificatesresolvers.myresolver.acme.tlschallenge=true"
       - "--certificatesresolvers.myresolver.acme.email=lrobot.qq@gmail.com"
-      - "--certificatesresolvers.myresolver.acme.storage=/__traefik_tmp_data/acme.json"
+      - "--certificatesresolvers.myresolver.acme.storage=/traefik_data/acme.json"
     ports:
       - "80:80"
       - "443:443"

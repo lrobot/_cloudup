@@ -30,7 +30,8 @@ if [ "x${_local_domain_name}" != "x" ] ; then
 fi
 export env_admin_password=""
 
-mkdir -p __traefik_tmp_data
+DATA_DIR=/_data${SCRIPT_DIR}/${CONTAINER_NAME}
+echodo mkdir -p ${DATA_DIR}
 
 echo_container_label() {
 ##this common cfg
@@ -100,7 +101,7 @@ podman run --rm -d \
 	-p 8443:8443 \
 	-p 9080:9080 \
 	-v ./traefik.yml:/traefik.yml \
-	-v ./__traefik_tmp_data:/__traefik_tmp_data \
+	-v ${DATA_DIR}:/traefik_data \
 	-v ./traefik_file_provider:/traefik_file_provider \
 	-v /run/podman/podman.sock:/var/run/docker.sock:ro \
 	--label-file <(echo_container_label $_local_domain_name) \
