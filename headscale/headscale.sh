@@ -91,11 +91,33 @@ echo 'curl -fsSL https://tailscale.com/install.sh | sh'
 echo tailscale login --login-server https://${_local_domain_name}
 }
 
+run_howitwork() {
+  export USERNAME=lrobot
+cat <<EOF
+# HeadScale Server
+1. /headscale.sh start
+2. ./headscale.sh shell
+3. >>headscale users create ${USERNAME}
+
+# TailScale Client
+curl -fsSL URL_ADDRESScurl -fsSL https://tailscale.com/install.sh | sh
+tailscale login --login-server https://${_local_domain_name}
+#tips_in_console: To authenticate, visit: https://${_local_domain_name}/register/xxxxxx
+#tips_in_webpage: https://${_local_domain_name}/register/xxxxxx. got tips: headscale nodes register --user USERNAME --key xxxxxxxx
+#headscale nodes register --user ${USERNAME} --key xxxxxxxx
+
+# Important:
+* replace USERNAME to ${USERNAME} ***
+* replace USERNAME to ${USERNAME} ***
+* replace USERNAME to ${USERNAME} ***
+EOF
+}
+
 run_help() {
   run_clienthelp
   echo
   echo
-  echo "$0 start|shell|show|stop|clienthelp"
+  echo "$0 start|shell|show|stop|clienthelp|howitwork"
 }
 
 run_() {
