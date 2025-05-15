@@ -14,7 +14,7 @@ cat <<EOF
 KMEETING_DOMAIN_NAME=${_local_domain_name}
 EOF
 }
-tempfile=$(mktemp .__meeting_compose_XXXXXXXXXX)
+tempfile=$(mktemp /tmp/.__meeting_compose_XXXXXXXXXX)
 echo_compose_env > $tempfile
 cat $tempfile
 podman-compose --env-file $tempfile "$@"

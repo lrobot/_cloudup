@@ -1,38 +1,13 @@
-Osname() { uname -s; }
+Osname() { unama -s; }
 osname() { uname -s | tr '[:upper:]' '[:lower:]'; }
-is_interactive_shell(){ [[ "$-" == "*i*" ]]; }
-# which defaults
 is_darwin() { [[ "x$(uname -s)" == "xDarwin" ]]; }
 is_linux() { [[ "x$(uname -s)" == "xLinux" ]]; }
 is_mingw() { [[ "x$(uname -s)" == "xMINGW64_NT" ]]; }
-is_win() { is_mingw; }
-is_arm64() { [[ "x$(uname -m)" == "xarm64" ]]; }
-is_x86_64() { [[ "x$(uname -m)" == "xx86_64" ]]; }
-is_debian() { hasbin apt && hasbin dpkg; }
-is_fedora() { hasbin dnf && hasbin rpm; }
-is_alpine() { command -v apk > /dev/null && apk --version | grep -q apk-tools &> /dev/null; }
-is_openwrt() { hasbin opkg && hasbin uci; }
 shellname() { is_linux && basename $(readlink /proc/$$/exe) || { is_darwin && basename $(ps -p $$ -ocomm=|sed 's/-//g'); };}
-try_source() { [[ "x${1}" != "x" ]] && [ -f "${1}" ] && source "${1}" ||:; }
-try_sourceor() { [[ "x${1}" != "x" ]] && [ -f "${1}" ] && source "${1}" ||false; }
-hasbin() { which ${1} &> /dev/null;}
-xnull() { [[ "x${1}" == "x" ]]; }
-xequ() { [[ "x${1}" == "x${2}" ]]; }
-err_exit() { echo "$@" >&2; exit 1; }
-#ps -p $$ -oargs=  #old busybox 1.28 no ps -p ; #readlink /proc/$$/exe #this will change ash to busybox(symlink), darwin no /proc
 is_bash() { [[ "x$(shellname)" == "xbash" ]]; }
 is_zsh() { [[ "x$(shellname)" == "xzsh" ]]; }
 is_ash() { [[ "x$(shellname)" == "xash" ]] || [[ "x$(shellname)" == "xbusybox" ]]; }
-envdump(){ echo "### os:$(Osname), shell:$(shellname)"; }
-debug_try_on() { if [[ ${DEBUG} -gt 0 ]]; then set -x; fi; }
-debug_off() { set +; }
-getfilesize() { stat -c "%s" $1; }
-checkindir() { [[ "x$(pwd)" == "x$1" ]]; }
-echodo() { echo _run_cmd:"$@"; $@; }
-duplicabledo() { echo "$@"; "$@"; }
-chmodu_ls() { chmod "$@"; shift; ls -lia "$@"; }
-inhome() { [[ "x$(pwd)" == "x$HOME" ]]; }
-isroot() { [[ "root" == "$(id -un)" ]]; }
+hasbin() { which ${1} &> /dev/null;}
 
 
 rshell_reload() {
@@ -66,12 +41,8 @@ trysource_completion() { :; }
 }
 
 hasbin fzf && {
-is_bash && {
- try_sourceor /usr/share/doc/fzf/examples/key-bindings.bash || source <(fzf --bash)
-}
-is_zsh && {
- try_sourceor /usr/share/doc/fzf/examples/key-bindings.zsh || source <(fzf --zsh)
-}
+is_bash && source <(fzf --bash)
+is_zsh && source <(fzf --zsh)
 }
 
 hasbin tailscale && {

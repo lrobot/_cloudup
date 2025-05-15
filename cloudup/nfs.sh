@@ -22,7 +22,7 @@ fstab_add() {
   else
     mount_fstype=nfs
   fi
-  echo ${mount_host}:/${mount_path} /${mount_path} ${mount_fstype}  defaults,ro,nofail 0 0 >> /etc/fstab
+  echo ${mount_host}:/${mount_path} /${mount_path} ${mount_fstype}  defaults,ro,nofail,timeo=30 0 0 >> /etc/fstab
   mount /${mount_path}
 }
 

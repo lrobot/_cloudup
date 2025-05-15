@@ -98,7 +98,9 @@ grep docker /etc/containers/registries.conf || {
 podman_install_alpine() {
 apk add podman podman-compose dnsmasq
 rc-update add cgroups
+rc-update add podman
 rc-service cgroups start
+rc-service podman start
 install_new_podman_compose
 }
 
