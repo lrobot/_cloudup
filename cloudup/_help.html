@@ -66,8 +66,9 @@ clouduprun() { wget -O- http://domain.com/\${1} | sh; }
 
 ## setup-alpine 
 * setup-alpine.cfg's USEROPTS use -u already enable normal user ssh login, but no passwd will cause canot use 'su -' or doas
-* please set password for normal user: passwd <your_user_name> 
-* enable root ssh key login by:'mkdir -p ~/.ssh && cp /home/*/.ssh/authorized_keys ~/.ssh/ && chmod -R 600 ~/.ssh/'
+* 1:login  console root login(no password login) or normal user ssh key login
+* 2:please set password for normal user: passwd <your_user_name> 
+* 3:enable root ssh key login by:'mkdir -p ~/.ssh && cp /home/*/.ssh/authorized_keys ~/.ssh/ && chmod -R 600 ~/.ssh/'
 * no passwd may not allow remote login(will deny login both by passwd&key auth)
 \`\`\`shell
 setup-alpine -e -f https://domain.com/setup-alpine.cfg
