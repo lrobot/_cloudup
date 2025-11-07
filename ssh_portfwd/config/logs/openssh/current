@@ -1,0 +1,31 @@
+2025-11-07 08:58:39.925962521  Unable to load host key "/config/ssh_host_keys/ssh_host_dsa_key": unknown or unsupported key type
+2025-11-07 08:58:39.926228309  Unable to load host key: /config/ssh_host_keys/ssh_host_dsa_key
+2025-11-07 08:58:39.931600129  Server listening on 0.0.0.0 port 2222.
+2025-11-07 08:58:39.931680642  Server listening on :: port 2222.
+2025-11-07 08:58:39.935435326  Connection to localhost (::1) 2222 port [tcp/*] succeeded!
+2025-11-07 08:58:39.944994873  Connection closed by ::1 port 46432
+2025-11-07 09:00:39.030927505  Received signal 15; terminating.
+2025-11-07 09:00:59.126665062  Unable to load host key "/config/ssh_host_keys/ssh_host_dsa_key": unknown or unsupported key type
+2025-11-07 09:00:59.126874210  Unable to load host key: /config/ssh_host_keys/ssh_host_dsa_key
+2025-11-07 09:00:59.132473686  Server listening on 0.0.0.0 port 2222.
+2025-11-07 09:00:59.132538191  Server listening on :: port 2222.
+2025-11-07 09:00:59.136404219  Connection to localhost (::1) 2222 port [tcp/*] succeeded!
+2025-11-07 09:00:59.146197943  Connection closed by ::1 port 37470
+2025-11-07 09:01:55.759212035  Received signal 15; terminating.
+2025-11-07 09:02:59.934727440  Unable to load host key "/config/ssh_host_keys/ssh_host_dsa_key": unknown or unsupported key type
+2025-11-07 09:02:59.934971090  Unable to load host key: /config/ssh_host_keys/ssh_host_dsa_key
+2025-11-07 09:02:59.940182643  Server listening on 0.0.0.0 port 2222.
+2025-11-07 09:02:59.940236375  Server listening on :: port 2222.
+2025-11-07 09:02:59.944206371  Connection to localhost (::1) 2222 port [tcp/*] succeeded!
+2025-11-07 09:02:59.953357294  Connection closed by ::1 port 51592
+2025-11-07 09:03:16.981222211  Access denied for user sshtunnel by PAM account configuration [preauth]
+2025-11-07 09:03:57.604435019  Access denied for user sshtunnel by PAM account configuration [preauth]
+2025-11-07 09:05:29.128794478  Received signal 15; terminating.
+2025-11-07 09:06:20.129784214  Unable to load host key "/config/ssh_host_keys/ssh_host_dsa_key": unknown or unsupported key type
+2025-11-07 09:06:20.130100053  Unable to load host key: /config/ssh_host_keys/ssh_host_dsa_key
+2025-11-07 09:06:20.135584542  Server listening on 0.0.0.0 port 2222.
+2025-11-07 09:06:20.135639247  Server listening on :: port 2222.
+2025-11-07 09:06:20.139231205  Connection to localhost (::1) 2222 port [tcp/*] succeeded!
+2025-11-07 09:06:20.148663833  Connection closed by ::1 port 60016
+2025-11-07 09:06:35.178343504  Access denied for user sshtunnel by PAM account configuration [preauth]
+2025-11-07 09:06:50.345098131  Received signal 15; terminating.
