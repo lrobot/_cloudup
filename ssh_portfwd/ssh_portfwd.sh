@@ -24,7 +24,7 @@ echodo podman rm ${CONTAINER_NAME}
 echodo podman run --name ${CONTAINER_NAME} -d \
 --restart unless-stopped \
 --network=host \
--e USER_NAME=sshtunnel -e USER_PASSWORD=891c4af952dc2d1fd8e4251b8481038c -e LOG_STDOUT=true -e PASSWORD_ACCESS=true  -v `pwd`/config:/config linuxserver/openssh-server
+-e USER_NAME=sshtunnel -e USER_PASSWORD=891c4af952dc2d1fd8e4251b8481038c -e LOG_STDOUT=true -e PASSWORD_ACCESS=true  -v `pwd`/config:/config linuxserver/openssh-server:version-10.0_p1-r9
 
 #podman run --rm -it -p 2222:2222 -e USER_NAME=sshtunnel -e USER_PASSWORD=891c4af952dc2d1fd8e4251b8481038c -e LOG_STDOUT=true -e PASSWORD_ACCESS=true  -v ./config:/config linuxserver/openssh-server sh
 
