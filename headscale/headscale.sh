@@ -73,13 +73,16 @@ echo 'headscale nodes list'
 echo 'headscale users list'
 echo 'headscale apikey list'
 echo 'headscale apikey create'
+echo 'headscale route list'
+echo 'headscale route enable -r 3'
+echo 'headscale route disable -r 3'
 podman exec -it ${CONTAINER_NAME} sh
 fi
 }
 
 run_show() {
 if podman container exists ${CONTAINER_NAME}; then
-  podman exec -it ${CONTAINER_NAME} sh -c "headscale nodes list; headscale users list; headscale apikey list; headscale routes list;"
+  podman exec -it ${CONTAINER_NAME} sh -c 'echodo() { echo _____runcmd:"$@";$@; }; echodo headscale nodes list; echodo headscale users list; echodo headscale apikey list; echodo headscale routes list;'
   #ref https://icloudnative.io/posts/how-to-set-up-or-migrate-headscale/
   ip route show table 52
 fi

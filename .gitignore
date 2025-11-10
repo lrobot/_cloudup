@@ -1,2 +1,14 @@
 __*
 ._*
+*.tmp
+*.pid
+*.zip
+*.gz
+*.bz2
+*.7z
+*.bin
+*.exe
+*.dll
+*.lib
+*.dylib
+
