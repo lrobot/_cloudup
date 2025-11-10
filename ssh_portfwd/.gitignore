@@ -1,2 +1,2 @@
-ssh_host_keys/
-ssh_host_keys/*
+config/ssh_host_keys/
+config/logs/
