@@ -1,0 +1,27 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>lrobot mini web</title>
+</head>
+<body>
+  <div id="content">loading</div>
+  <script xsrc="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/15.0.7/marked.min.js"></script>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <script>
+var markdown = `
+# public cloudup_index 
+
+- cloudup.html: [@local](http://192.168.1.10/cloudup.html)  [@cftunnel](http://cloudupcf.jasm.top/cloudup.html)  [@cloud](https://cloudup.jasm.top/cloudup.html)
+- cloudup: [@local](http://192.168.1.10/)  [@cftunnel](http://cloudupcf.jasm.top/)  [@cloud](https://cloudup.jasm.top/)
+- file: [@local](http://192.168.1.10/file)  [@cftunnel](http://cloudupcf.jasm.top/file)  [@cloud](https://cloudup.jasm.top/file)
+
+
+## End`;
+    document.getElementById('content').innerHTML =
+      marked.parse(markdown);
+  </script>
+</body>
+</html>
+

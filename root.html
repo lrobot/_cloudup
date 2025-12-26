@@ -1,0 +1,59 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>lrobot mini web</title>
+</head>
+<body>
+  <div id="content">loading</div>
+  <script xsrc="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/15.0.7/marked.min.js"></script>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <script>
+var markdown = `
+# cloudup_home_root
+
+- root.html [@local](http://192.168.1.10:8080/root.html)  [@cftunnel](https://root.jasm.top/root.html)
+- cloudup.html: [@local](http://192.168.1.10/cloudup.html)  [@cftunnel](http://cloudupcf.jasm.top/cloudup.html)  [@cloud](https://cloudup.jasm.top/cloudup.html)
+- cloudup: [@local](http://192.168.1.10/)  [@cftunnel](http://cloudupcf.jasm.top/)  [@cloud](https://cloudup.jasm.top/)
+- file: [@local](http://192.168.1.10/file)  [@cftunnel](http://cloudupcf.jasm.top/file)  [@cloud](https://cloudup.jasm.top/file)
+
+
+# my
+* telecom_modem_tv FibeHome HG5585F http://192.168.1.9/
+* [this_web_site](http://192.168.1.10/)
+* [天翼网关](http://192.168.1.2) 192.168.1.2
+* [qrasp dnsserver](http://192.168.1.3) 192.168.1.3 [home_dns_config](https://github.com/lrobot/qdoor/blob/main/dnsmasq.d/qhome.conf) /etc/dnsmasq.conf -> /etc/dnsmasq.d -> /opt/qdoor/dnsmasq.d
+* [qpve0](http://192.168.1.10:8006) 192.168.1.10 #pve(null) #c31m_pc #qdisk(/nfs.local) /nfs.local/mypriv #home_myweb #home_haproxy(oray80_2_qdev80) home_pgyvpn #home_sshrvhtx #home_sshrvhbw  #zerotier_gw(zerotier-cli)
+* [qpve1](http://192.168.1.11:8006) 192.168.1.11 #pve(qdev) #c31m_pc
+* [qpve2](http://192.168.1.12:8006) 192.168.1.12 #pve(qdevx) #super_server #amd_epyc_32core
+* netgear R7000 http://192.168.1.51
+* tianyi 6210A pro DC80 http://192.168.1.55
+* tianyi 6210A pro B878 http://192.168.1.56
+
+# qdev_info
+
+* qdev.lan  test server
+* qdevx.lan super server for build and heavy task
+
+* http://192.168.1.4:9090/ui/metacubexd/#/
+
+* [qdev.lan](http://qdev.lan/)
+* [ztvpn_qpve0](http://10.147.19.15/)
+
+
+# lincao
+* [lincao_office_web_ts](http://100.108.37.8/)
+* [lincao_office_web_zt](http://10.147.19.157/)
+* [lincao_test_web_from_pgyvpn](http://172.16.1.12/) [swagger](http://172.16.1.12/apiserver/swagger-ui/index.html)
+* [lincal_test_web_from_local_home](http://qdev.lan/) [swagger](http://qdev.lan/apiserver/swagger-ui/index.html)
+* [local_swagger](http://localhost:9090/apiserver/swagger-ui/index.html)
+* [local_web](http://localhost:3000/)
+
+## Subhead`;
+    document.getElementById('content').innerHTML =
+      marked.parse(markdown);
+  </script>
+</body>
+</html>
+
