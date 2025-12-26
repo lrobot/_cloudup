@@ -11,7 +11,7 @@ fi
 
 echo ${CONTAINER_NAME} creating...
 podman run -d --rm --name ${CONTAINER_NAME} \
- -v /nfs.local/_cloudup/cloudup:/cloudup_pub --rm -p 80:8080 svenstaro/miniserve  /cloudup_pub
+ -v /_cloudup/cloudup:/cloudup_pub --rm -p 80:8080 svenstaro/miniserve  /cloudup_pub
 
 podman generate systemd ${CONTAINER_NAME} > /etc/systemd/system/qcontainer-${CONTAINER_NAME}.service
 systemctl enable qcontainer-${CONTAINER_NAME}.service

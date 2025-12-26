@@ -1,0 +1,3 @@
+fstab:
+/_file /_cloudup/cloudup/file none bind,nofail,errors=continue 0 0
+
